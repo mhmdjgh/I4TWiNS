@@ -68,9 +68,10 @@ Only `LLM_API_KEY` is required. Everything else has a default (see [`.env.exampl
 |---|---|---|
 | `LLM_API_KEY` (or `OPENROUTER_API_KEY`) | – | Provider key |
 | `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | Any OpenAI-compatible endpoint |
-| `LLM_MODEL` | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | Primary model |
+| `LLM_MODEL` | `nvidia/nemotron-3.5-lightning:free` | Primary model |
 | `LLM_FALLBACK_MODEL` | `google/gemma-4-31b-it:free` | Used if the primary fails |
-| `LLM_REASONING` | `off` | Hidden reasoning for reasoning models (`off`/`low`/`medium`/`high`) |
+| `LLM_REASONING` | `off` | Hidden reasoning for reasoning models (`off`/`low`/`medium`/`high`); general chat uses `low` |
+| `LLM_REASONING_PARAM` | `openrouter` | How the switch is sent: `openrouter` (`reasoning` object), `openai` (`reasoning_effort`) or `none` |
 | `LLM_JSON_MODE` / `LLM_SYSTEM_ROLE` | `true` / `true` | Provider quirks (JSON mode, system-role support) |
 | `MAX_SKILLS_PER_REQUEST` | `2` | Skills per prompt |
 | `CLARIFY_BELOW_CONFIDENCE` | `0.4` | Below this, a non-chat route becomes a clarifying question |
@@ -197,14 +198,17 @@ The router chooses the shape, because only it knows whether the tasks depend on 
 
 | Mode | When | How it runs | What the user gets |
 |---|---|---|---|
-| `sequential` | The second skill must work on the first one's output: *"summarize this and translate the summary"*, *"TL;DR of this paragraph in French"* | Only the first node starts. `after_skill` sends **only the previous output** (not the state or history) to the next node. A failed step stops the chain. | The final output, since that is what was asked for. Intermediate results are in the trace and dashboard. |
-| `parallel` | Independent tasks: *"translate 'good luck' into Persian, and what is 15% of 3,200?"* | One `Send` per skill in the same superstep, each with its own input. | Titled sections (`**Translation**`, `**Calculation**`, localized). |
+| `sequential` | The second skill must work on the first one's output: *"summarize this and translate the summary"*, *"TL;DR of this paragraph in French"* | Only the first node starts. `after_skill` sends **only the previous output plus the user's instruction** (not the original text, the state or history) to the next node. A failed step stops the chain. | The final output, since that is what was asked for. Intermediate results are in the trace and dashboard. |
+| `parallel` | Independent tasks: *"translate 'good luck' into Persian, and what is 15% of 3,200?"* | One `Send` per skill in the same superstep. The router can pin each skill's part of the message (`input`), so the translator sees only the phrase and the calculator only the calculation; a pinned span is used only if it occurs verbatim in the message. | Titled sections (`**Translation**`, `**Calculation**`, localized). |
+
+Giving each skill only its own share is not just about context size: in evaluation, a translator that
+could see the whole prompt translated the original text instead of the summary (chain) and the
+calculation as well as the phrase (parallel).
 
 Why not always chain or always parallelize? Always chaining makes independent tasks slower and
 feeds unrelated text into the second skill. Always parallelizing breaks requests like *summarize then
-translate*, where the translation would run on the full text instead of on the summary. Both cases
-appear in the evaluation set, and the router picked the right mode in all 3 multi-skill cases that
-specify one.
+translate*, where the translation would run on the full text instead of on the summary. Both shapes
+are in the evaluation set.
 
 ---
 
@@ -236,11 +240,11 @@ run per request, every call must still fit the model's window. Each risk has its
 | **The router prompt grows with the number of skills** | The router sees only compact skill cards. Above `SHORTLIST_THRESHOLD` skills, a bilingual lexical `Shortlister` (keyword phrases plus IDF-weighted overlap, no LLM call) keeps only the `SHORTLIST_TOP_K` most relevant cards. The fallback card is always kept. **Tested:** router prompt size stays flat for 10, 50 and 200 registered skills; the right skill survives shortlisting in a 54-skill catalogue for English and Persian prompts. |
 | **A long message is sent to the router** | The router reads a head/tail excerpt. The request is at the start or end; the long middle is the document, which routing does not need. |
 | **Several skills write into one answer** | `ContextBudget.output_per_step`: parallel steps share `TOTAL_OUTPUT_BUDGET`. In a chain each intermediate output is capped at `MAX_OUTPUT_TOKENS`, so step *n+1*'s input is bounded by construction. |
-| **Chained steps pile up history** | The next step receives only the previous output, never the state. Parallel branches are isolated by `Send`. |
+| **Chained steps pile up history** | The next step receives only the previous output and the user's instruction, never the original text or the state. Parallel branches are isolated by `Send` and get only their pinned span. |
 | **A text larger than the window must be summarized** | Map-reduce: chunk → summarize each part → merge, repeating the reduce while partials are still too long. **Tested:** every call fits a deliberately small window. |
 | **A text larger than the window must be translated** | Chunk-by-chunk translation, joined in order. |
 | **Chat/calculator get a huge input** | Excerpt to the room left in the window. |
-| **Reasoning models spend hidden tokens** | `LLM_REASONING` (off by default) and an allowance added to `max_tokens` when it is on (see §10 for how this was found). |
+| **Reasoning models spend hidden tokens** | Reasoning off by default, switched in each provider's dialect; per-skill opt-in (chat uses `low`); an allowance added to `max_tokens` when it is on; an empty, truncated answer is retried once with a doubled limit (see §10 for how this was found). |
 
 Chunks follow paragraph, then sentence (including Persian `؟`), then word boundaries. Tokens are
 estimated without a provider tokenizer (~4 chars/token for ASCII, ~2 for other scripts), which
@@ -262,8 +266,10 @@ Techniques used throughout:
   instead of "be accurate").
 - **Few-shot only where the output has a format**: router and calculator (JSON); the free-text
   skills get rules, so examples are not copied.
-- **Deterministic checks where prompts are not enough** (translator facts, summarizer
-  precondition, clarification language).
+- **Deterministic checks where prompts are not enough**, each followed by one targeted repair
+  request: numbers, weekdays and English left in Persian (translator); summary length versus
+  source (summarizer); plus the summarizer's no-text precondition and the clarification-language
+  guard.
 
 | Skill | Prompt approach |
 |---|---|
@@ -284,6 +290,7 @@ The first real run translated *"The meeting has been moved to **Thursday** morni
 | **v2** | Adds a scope section, an **accuracy** section ("names, numbers, dates, **weekdays**, months, units and amounts must match the source; check them before answering", plus a weekday glossary), register and idiom rules, and Persian orthography. See [the full prompt](src/skill_agent/prompts/translator.md). |
 | **Result** | Still «جمعه». A 3B-active model does not reliably follow the glossary. |
 | **v3 (code)** | `skills/checks.py` compares digits and weekday names between source and translation, in both directions. On a mismatch the model gets **one targeted repair**: *"'Thursday' must be translated as «پنجشنبه». Return the corrected translation only."* It costs one extra call, and only when a check fails. |
+| **Result** | In the final evaluation the model again wrote the wrong weekday; the check caught it and the repaired answer was «جلسه به ساعت صبح پنجشنبه منتقل شد…». The same mechanism later gained a check for English words left in Persian output («…postponed شده است»). |
 
 Lesson: with small models, instructions narrow the error rate, but facts that can be checked
 mechanically should be checked mechanically. The summarizer change (v1 replaced *"the Zayandeh
@@ -332,15 +339,20 @@ injection payloads (`__import__`, dunder traversal, lambdas, attribute access, k
 
 | | Model | Parameters | Price on OpenRouter |
 |---|---|---|---|
-| Primary | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | **30B total, ~3B active (MoE)** | $0 (free tier) |
+| Primary | `nvidia/nemotron-3.5-lightning:free` | **30B total, ~3B active (MoE)** | $0 (free tier) |
 | Fallback | `google/gemma-4-31b-it:free` | **30.7B dense** | $0 (free tier) |
+| Earlier runs | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | 30B total, ~3B active (MoE) | $0 (free tier) |
 
-- Provider: **OpenRouter free tier** (no credits purchased; the key reports `is_free_tier: true`).
-  Both models are ≤ 35B parameters.
+- Default provider: **OpenRouter free tier** (no credits purchased; the key reports
+  `is_free_tier: true`). Every model used is ≤ 35B parameters.
 - Gemma 4 31B was the first choice for its multilingual quality, but its free endpoint answered
-  `429` (upstream rate limit) during development, so it is the fallback. Nemotron answered
-  reliably and handled Persian well.
-- Any OpenAI-compatible endpoint works by changing `LLM_BASE_URL` / `LLM_MODEL`.
+  `429` (upstream rate limit) during development, so it is the fallback. Development started on
+  Nemotron 3 Nano Omni. Once the free tier's daily request limit was used up, the final
+  evaluation moved to its closest sibling, Nemotron 3.5 Lightning (same family, same 30B/3B-active
+  size, also free on OpenRouter), which is now the default.
+- Any OpenAI-compatible endpoint works by changing `LLM_BASE_URL` / `LLM_MODEL`; set
+  `LLM_REASONING_PARAM=openai` for gateways that expect `reasoning_effort` instead of OpenRouter's
+  `reasoning` object.
 - Free-tier limits shaped some choices: 50 requests per day, so the eval runs routing-only by
   default (1 request per case), and reasoning is off by default (see below).
 
@@ -361,30 +373,34 @@ Metric: exact match of the selected skill set (order checked for sequential case
 accuracy, per-category accuracy and per-skill precision/recall. Run with `uv run skill-agent eval`;
 the latest report is [`evals/report.md`](evals/report.md).
 
-### Results (`nemotron-3-nano-omni-30b-a3b`, reasoning off)
+### Results (`nemotron-3.5-lightning`, full run: routing and answers)
 
 | Metric | Result |
 |---|---|
-| **Skill-detection accuracy** | **13/15 (87%)** strict, **13/14 (93%)** on the cases that were routed |
-| Clear / multi / ambiguous / no-skill | 7/7, 4/4, 1/2, 1/2 |
-| Sequential vs parallel mode | 3/3 |
-| Calculator / translator precision and recall | 1.00 / 1.00 |
+| **Skill-detection accuracy** | **14/15 (93%)** |
+| Clear / multi / ambiguous / no-skill | 7/7, 3/4, 2/2, 2/2 |
+| Per-skill precision | 1.00 for every label (recall: chat 0.80, translator 0.80, others 1.00) |
+| Average latency per prompt | ~3 s end to end |
 
-The two non-passes:
-- `ambiguous-summarize-no-text-fa`: «اینو برام خلاصه کن» was routed to `summarizer` instead of a
-  clarification. The summarizer now checks its own precondition and asks for the text, so the user
-  gets the right behaviour even though the routing metric counts it as a miss.
-- `no-skill-math-history-fa`: not routed. The account hit the free tier's 50 requests/day limit
-  on the last case. It was routed correctly (`general_chat`) in the earlier run.
+The one miss: *"Give me a two-line TL;DR of this paragraph, written in French"* was routed to
+`summarizer` alone instead of `summarizer → translator`. The answer is still correct: the summarizer
+honours the requested output language and returned a French TL;DR. It is counted as a miss because
+that is how the case is labelled. Every answer of the run is in [`evals/report.md`](evals/report.md).
 
 ### What the runs changed
 
+Each row is something a real run showed and the change it led to. Runs 1–2 used Nemotron 3 Nano
+Omni; runs 3–5 used Nemotron 3.5 Lightning.
+
 | Run | Accuracy | Finding | Change |
 |---|---|---|---|
-| 1 | 13/15 | Both failures were **truncated JSON**: the reasoning model used ~400 of the router's 500 output tokens on hidden reasoning. | `LLM_REASONING` setting, reasoning allowance added to `max_tokens`, truncated replies retried with a doubled limit. A side-by-side check showed the same decision with reasoning off at **1.7 s vs 9.8 s**, so it is off by default. |
+| 1 | 13/15 | Both failures were **truncated JSON**: the reasoning model used ~400 of the router's 500 output tokens on hidden reasoning. | `LLM_REASONING` setting, reasoning allowance, truncated replies retried with a doubled limit. Same decision with reasoning off at **1.7 s vs 9.8 s**, so it is off by default. |
 | – | – | With reasoning off, a Persian request got an English clarification question. | Prompt rule and Persian example, plus a deterministic language guard. |
-| full runs | – | Summarizer lost a named entity and invented a causal link; translator turned Thursday into Friday. | Prompt v2 for all text skills; translator verify-and-repair. |
-| 2 | 13/15 (13/14 routed) | One real miss (no-text summary), one quota error. | Summarizer precondition. |
+| full | – | Summarizer lost a named entity and invented a causal link; translator turned Thursday into Friday. | Prompt v2 for all text skills; translator verify-and-repair. |
+| 2 | 13/15 | One real miss («اینو برام خلاصه کن» → summarizer); one case lost to the daily request limit. | Summarizer precondition: no text → ask for it. |
+| 3 | 15/15 routing | Translator returned **empty answers**: it spent the whole output limit on hidden reasoning, and the gateway rejected OpenRouter's switch for turning reasoning off. | Reasoning switch per provider (`LLM_REASONING_PARAM`); empty, truncated completions retried. |
+| 4 | 14/15 | With reasoning really off (≈2 s per prompt): an English poem request answered in Persian; a wrong attribution for algebra; a two-sentence summary nearly as long as the source; «…postponed شده است» in a translation. | Reply language stated to chat, low reasoning for chat only; summary length check; check for English left in Persian translations. |
+| 5 | **14/15** | Chained translator translated the original text instead of the summary; parallel translator also translated the calculation and invented its result. | Chained steps get only the instruction and previous output; the router pins each skill's span in multi-task prompts (used only if it occurs verbatim). The weekday repair fired and fixed the EN→FA translation live. |
 
 ---
 
@@ -393,7 +409,7 @@ The two non-passes:
 ```bash
 uv run ruff check && uv run ruff format --check
 uv run mypy src dashboard          # strict mode
-uv run --extra dashboard pytest    # 166 tests, no network
+uv run --extra dashboard pytest    # 181 tests, no network
 ```
 
 - The test suite runs offline with a scripted chat model that answers based on which prompt it
@@ -430,7 +446,7 @@ src/skill_agent/
 dashboard/app.py        Streamlit dashboard
 evals/                  dataset.yaml, report.md, results.json
 docs/                   prompt-engineering.md, proposal (PDF)
-tests/                  166 offline tests
+tests/                  181 offline tests
 ```
 
 ### Adding a skill
@@ -462,16 +478,16 @@ node and the dashboard pick it up; nothing else changes.
 | Limitation now | For production |
 |---|---|
 | Free tier: 50 requests/day, upstream `429`s, no SLA | Paid or self-hosted inference (vLLM/TGI), retry with backoff and jitter, circuit breaker, request queue |
-| 15-case eval, routing only; output quality judged by reading | A few hundred labelled prompts per language, LLM-as-judge plus human review for summaries and translations, regression gate in CI |
+| 15-case eval; output quality judged by reading the answers in the report | A few hundred labelled prompts per language, LLM-as-judge plus human review for summaries and translations, regression gate in CI |
 | Token counts are estimates | The serving model's tokenizer |
 | Lexical shortlister | Embedding retrieval over skill cards (multilingual embeddings), still with a pinned fallback |
 | `split_instruction` uses a heuristic (first colon or line break) to find the text inside a long prompt | Let the router return spans or offsets, or accept the text as a separate field (file upload or API body) |
 | Synchronous execution; map-reduce chunks run one after another | Async graph and concurrent chunk calls within rate limits; streaming responses |
-| Translation checks cover numbers and weekdays only | Named-entity, date and unit alignment; glossary enforcement for domain terms |
+| Translation checks cover numbers, weekdays and leftover English only; idioms can still come out literal with reasoning off (`good luck with your exam` → «خوشبخت باشی روی امتحان‌ت») | Named-entity, date and unit alignment; glossary enforcement for domain terms |
 | Calculator is numeric only (no symbolic algebra or equation solving) | A SymPy-backed tool with the same safety envelope |
 | No memory, auth, persistence or rate limiting (out of scope) | Per-user sessions, authentication, audit log, PII handling |
 | Observability is an in-response trace | OpenTelemetry/LangSmith tracing, metrics per node and model, cost tracking, alerting |
-| One router call decides everything | Self-consistency or a cheap second opinion on low-confidence routes; confidence calibration from eval data |
+| One router call decides everything; it does not always fill the per-skill `input` span in multi-task prompts | Self-consistency or a cheap second opinion on low-confidence routes; confidence calibration from eval data |
 | Dockerfile is provided but not built in CI | Build and scan the image in CI, publish to a registry |
 
 ---

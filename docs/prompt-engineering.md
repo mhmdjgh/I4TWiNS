@@ -1,8 +1,8 @@
 # Prompt engineering log
 
-How each prompt was built and what changed after running it against the real model
-(`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, a 30B mixture-of-experts model with about
-3B parameters active per token). The current prompts are in
+How each prompt was built and what changed after running it against real models: first
+`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`, then its sibling `nvidia/nemotron-3.5-lightning`.
+Both are 30B mixture-of-experts models with about 3B parameters active per token. The current prompts are in
 [`src/skill_agent/prompts/`](../src/skill_agent/prompts/); earlier versions are in the git history
 of those files.
 
@@ -66,11 +66,27 @@ That English question for a Persian request led to:
 - **Guard in code:** if the question's script does not match the response language, the router
   replaces it with a localized default.
 
+### Change 3: each skill's share of a multi-task prompt
+
+Two failures in the final evaluation came from skills seeing more of the prompt than their own
+part: in a chain the translator translated the original Persian text instead of the summary, and
+in a parallel request it translated the calculation as well and wrote its own result. The JSON
+contract gained an optional `input` per skill (*"the part of the message that skill must work on,
+copied exactly"*), required by the rule for parallel requests and shown in the parallel example.
+Code adds two guards: a pinned span is used only if it occurs verbatim in the message, and a
+chained step receives only the user's instruction plus the previous output.
+
 ### Remaining miss
 
-«اینو برام خلاصه کن» ("summarize this for me", with no text) was routed to the summarizer in the
-final run. Rather than add an example that mirrors the test case, the summarizer now checks its own
-precondition (fewer than 8 words of text → ask for the text).
+With Nemotron 3 Nano Omni, «اینو برام خلاصه کن» ("summarize this for me", with no text) was
+routed to the summarizer. Rather than add an example that mirrors the test case, the summarizer now
+checks its own precondition (fewer than 8 words of text → ask for the text). Nemotron 3.5 Lightning
+routed it to a clarification directly.
+
+In the final run, the only miss was *"a two-line TL;DR of this paragraph, written in French"*,
+routed to the summarizer alone. The answer is still a correct French TL;DR, because the summarizer
+writes in the language the Task line names. The label was left as it was; changing labels after
+seeing results would inflate the score.
 
 ---
 
@@ -107,6 +123,13 @@ You are a summarization assistant. Summarize the text the user provides.
 
 **After v2**, the same case returned "…while **the recent drying up of the Zayandeh River** has
 damaged the city's appearance and tourism-related businesses."
+
+**v3, compression** (final evaluation): "summarize in two sentences" returned two sentences almost
+as long as the source, and a chained summary restated all three sentences of a three-sentence text.
+The prompt now states that *"a summary is always clearly shorter than the source: at most about
+half its length, even when the user fixes the number of sentences"*. As with the translator, a
+check backs it up: a summary longer than 60% of a source of 40 or more words gets one shortening
+request with the word counts («50 → 32 words» and «100 → 20 words» in the final run).
 
 **Long inputs:** above the context budget, the same prompt is used in map-reduce. Each part is
 summarized with "keep every key fact, name and number", and the partials are merged with the
@@ -161,8 +184,22 @@ Return the corrected translation only.
 
 This costs one extra call, and only when a check fails. Numbers are checked only when the text
 to translate is clearly delimited, so the numbers of a calculation in the same prompt (a parallel
-request) do not trigger a false repair. The check and the repair loop are covered by unit tests.
-The live re-check of this exact case is still pending, because the free daily quota ran out.
+request) do not trigger a false repair.
+
+**Live result** (final evaluation, Nemotron 3.5 Lightning): the model again wrote the wrong
+weekday, the check caught it, and the returned answer was «جلسه به ساعت صبح پنجشنبه منتقل شد چون
+مدیر مسافرت است.»
+
+**v4, mixed languages:** with reasoning switched off the model produced «جلسه به صبح پنج‌شنبه
+**postponed** شده است». The prompt now says *"Write the whole translation in the target language. Do
+not leave source-language words in it, except names, brands, code and URLs"*, and the check flags
+lower-case Latin words in a Persian translation (code spans, URLs and e-mail addresses excluded;
+capitalized names allowed), which triggers the same repair.
+
+**Known weakness:** idioms can still come out literal with reasoning off: "good luck with your
+exam" became «خوشبخت باشی روی امتحان‌ت» instead of «در امتحانت موفق باشی». Reasoning would help,
+but for translation this model spent its whole output budget on hidden reasoning and returned
+nothing, so the translator runs without it.
 
 ---
 
@@ -202,3 +239,9 @@ user. Keep answers short and helpful. If you do not know something, say so."*
   possibly with a different number than the tool;
 - Persian register (polite «شما» unless the user is casual), half-spaces and punctuation;
 - no invented current events, prices or personal information.
+
+**v3** (final evaluation, reasoning off): an English request for a poem was answered with a
+Persian poem, and "who invented algebra?" got an invented attribution. The reply language from the
+router is now written into the prompt (*"Reply in English, … even for creative requests such as a
+poem"*), and chat is the one skill that runs with `low` reasoning. After the change: an English
+poem, and «… محمد بن موسی خوارزمی در قرن نهم میلادی …».
