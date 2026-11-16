@@ -19,6 +19,7 @@ SOURCE = "The meeting has been moved to Thursday morning because the manager is 
         (SOURCE, "جلسه به صبح جمعه منتقل شده است.", "«پنجشنبه»"),
         ("Pay 3,200 dollars by Monday.", "تا دوشنبه ۳۲۰ دلار بپردازید.", "3200"),
         ("جلسه پنج‌شنبه است.", "The meeting is on Friday.", "Thursday"),
+        (SOURCE, "جلسه به صبح پنج‌شنبه postponed شده است.", "postponed"),
     ],
 )
 def test_detects_changed_facts(source: str, translation: str, problem: str) -> None:
@@ -35,6 +36,8 @@ def test_detects_changed_facts(source: str, translation: str, problem: str) -> N
         ("جلسه شنبه و یکشنبه است.", "The meeting is on Saturday and Sunday."),
         ("Good morning!", "صبح بخیر!"),
         ("Rendez-vous jeudi.", "Meeting on Thursday."),
+        ("Install Python from https://python.org", "پایتون را از https://python.org نصب کنید."),
+        ("Ask Google about `pip install`.", "از Google درباره‌ی `pip install` بپرسید."),
     ],
 )
 def test_accepts_faithful_translations(source: str, translation: str) -> None:
@@ -102,3 +105,8 @@ def test_report_counts_provider_errors_separately() -> None:
     )
     assert "accuracy on the 1 routed cases: 1/1 (100%)" in report.to_markdown()
     assert json.loads(report.model_dump_json())["results"][1]["error"] == "429"
+
+    all_failed = EvalReport(
+        model="m", created_at="now", full_run=False, results=[result(False, "400")]
+    )
+    assert "nothing was routed" in all_failed.to_markdown()
