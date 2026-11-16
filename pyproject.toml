@@ -18,6 +18,11 @@ dependencies = [
 [project.scripts]
 skill-agent = "skill_agent.cli:app"
 
+[project.optional-dependencies]
+dashboard = [
+    "streamlit>=1.67.0",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -41,7 +46,7 @@ mypy_path = "src"
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["streamlit.*", "yaml.*"]
+module = ["streamlit.*", "yaml.*", "pandas.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
