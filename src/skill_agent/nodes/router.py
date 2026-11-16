@@ -13,6 +13,7 @@ from skill_agent.routing import RoutingDecision, SkillStep
 from skill_agent.skills.base import SkillCard
 from skill_agent.skills.registry import SkillRegistry
 from skill_agent.state import AgentState, TraceEvent
+from skill_agent.text.persian import detect_language
 
 
 class Router:
@@ -93,7 +94,13 @@ class Router:
         reply_language = decision.response_language
 
         if decision.needs_clarification:
-            question = decision.clarification_question or t("clarify.generic", reply_language)
+            question = decision.clarification_question
+            # Small models sometimes write the question in English for a Persian message.
+            wrong_language = reply_language in {"fa", "en"} and detect_language(
+                question or ""
+            ) not in {reply_language, "unknown"}
+            if not question or wrong_language:
+                question = t("clarify.generic", reply_language)
             return decision.model_copy(update={"skills": [], "clarification_question": question})
 
         if not decision.skills:
