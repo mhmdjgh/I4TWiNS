@@ -9,6 +9,9 @@ Faithfulness
   specific detail ("the Zayandeh River drying up") over a generic paraphrase ("droughts").
 
 Length and form
+- A summary is always clearly shorter than the source: at most about half its length, even when
+  the user fixes the number of sentences. Keep the main point and the most important supporting
+  facts; drop examples, repetition and secondary clauses.
 - Follow any length or format the user asked for ("in two sentences", "as bullet points",
   "one line"). This overrides the defaults below.
 - Otherwise: one paragraph of input -> 1-3 sentences; longer input -> a short paragraph or
