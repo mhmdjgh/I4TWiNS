@@ -1,0 +1,361 @@
+{
+  "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+  "created_at": "2026-11-16 09:20 UTC",
+  "full_run": false,
+  "results": [
+    {
+      "case": {
+        "id": "clear-chat-en",
+        "category": "clear",
+        "language": "en",
+        "prompt": "Hey! How's your day going?",
+        "expected": [
+          "general_chat"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "general_chat"
+      ],
+      "mode": "single",
+      "confidence": 0.99,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 2079.0020000131335,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "clear-chat-fa",
+        "category": "clear",
+        "language": "fa",
+        "prompt": "سلام، خسته نباشی! چه خبر؟",
+        "expected": [
+          "general_chat"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "general_chat"
+      ],
+      "mode": "single",
+      "confidence": 0.98,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 2149.132100006682,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "clear-calc-fa",
+        "category": "clear",
+        "language": "fa",
+        "prompt": "۲۵ درصد از ۸۴۰ هزار تومان چقدر میشه؟",
+        "expected": [
+          "calculator"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "calculator"
+      ],
+      "mode": "single",
+      "confidence": 0.99,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 1208.697200010647,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "clear-calc-en",
+        "category": "clear",
+        "language": "en",
+        "prompt": "What is (17.5 * 42) / 3 + 2^10?",
+        "expected": [
+          "calculator"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "calculator"
+      ],
+      "mode": "single",
+      "confidence": 0.99,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 1881.3053000048967,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "clear-summarize-fa",
+        "category": "clear",
+        "language": "fa",
+        "prompt": "این متن را در دو جمله خلاصه کن:\nانرژی خورشیدی در سال‌های اخیر به یکی از ارزان‌ترین منابع تولید برق در جهان تبدیل شده است. کاهش قیمت پنل‌ها و بهبود فناوری باتری باعث شده بسیاری از کشورها سهم انرژی‌های تجدیدپذیر را در سبد انرژی خود افزایش دهند. با این حال، ذخیره‌سازی انرژی برای ساعات شب و روزهای ابری هنوز یک چالش جدی است. کارشناسان معتقدند سرمایه‌گذاری در شبکه‌های هوشمند برق می‌تواند بخشی از این مشکل را حل کند.\n",
+        "expected": [
+          "summarizer"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "summarizer"
+      ],
+      "mode": "single",
+      "confidence": 0.98,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 1172.9171999904793,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "clear-translate-en-fa",
+        "category": "clear",
+        "language": "en",
+        "prompt": "Translate into Persian: The meeting has been moved to Thursday morning because the manager is travelling.",
+        "expected": [
+          "translator"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "translator"
+      ],
+      "mode": "single",
+      "confidence": 0.99,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 1054.9045999941882,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "clear-translate-fa-en",
+        "category": "clear",
+        "language": "fa",
+        "prompt": "این جمله را به انگلیسی ترجمه کن: «کتاب‌خانه‌ی شهر تا ساعت هشت شب باز است.»",
+        "expected": [
+          "translator"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "translator"
+      ],
+      "mode": "single",
+      "confidence": 0.99,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 1344.8946999997133,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "multi-summarize-translate-fa",
+        "category": "multi",
+        "language": "fa",
+        "prompt": "متن زیر را خلاصه کن و بعد خلاصه‌اش را به انگلیسی ترجمه کن:\nشهر اصفهان با پل‌های تاریخی، میدان نقش جهان و معماری دوره‌ی صفوی یکی از مهم‌ترین مقصدهای گردشگری ایران است. هر سال هزاران گردشگر داخلی و خارجی از این شهر دیدن می‌کنند. خشک شدن زاینده‌رود در سال‌های اخیر اما به چهره‌ی شهر و کسب‌وکارهای وابسته به گردشگری آسیب زده است.\n",
+        "expected": [
+          "summarizer",
+          "translator"
+        ],
+        "accept": [],
+        "mode": "sequential"
+      },
+      "predicted": [
+        "summarizer",
+        "translator"
+      ],
+      "mode": "sequential",
+      "confidence": 0.96,
+      "correct": true,
+      "mode_correct": true,
+      "latency_ms": 1364.8407000000589,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "multi-translate-calc-en",
+        "category": "multi",
+        "language": "en",
+        "prompt": "Translate 'good luck with your exam' into Persian, and also tell me what 15% of 3,200 is.",
+        "expected": [
+          "translator",
+          "calculator"
+        ],
+        "accept": [],
+        "mode": "parallel"
+      },
+      "predicted": [
+        "translator",
+        "calculator"
+      ],
+      "mode": "parallel",
+      "confidence": 0.95,
+      "correct": true,
+      "mode_correct": true,
+      "latency_ms": 1296.3116000028094,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "multi-tldr-in-french-en",
+        "category": "multi",
+        "language": "en",
+        "prompt": "Give me a two-line TL;DR of this paragraph, written in French: Remote work has reshaped city centres. Office occupancy in many capitals is still below pre-2020 levels, cafés and shops near business districts have lost foot traffic, and some cities are converting empty offices into housing.",
+        "expected": [
+          "summarizer",
+          "translator"
+        ],
+        "accept": [],
+        "mode": "sequential"
+      },
+      "predicted": [
+        "summarizer",
+        "translator"
+      ],
+      "mode": "sequential",
+      "confidence": 0.96,
+      "correct": true,
+      "mode_correct": true,
+      "latency_ms": 1538.662100007059,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "multi-greeting-calc-fa",
+        "category": "multi",
+        "language": "fa",
+        "prompt": "سلام! راستی جذر ۱۹۶ چند میشه؟",
+        "expected": [
+          "general_chat",
+          "calculator"
+        ],
+        "accept": [
+          [
+            "calculator"
+          ]
+        ],
+        "mode": null
+      },
+      "predicted": [
+        "calculator"
+      ],
+      "mode": "single",
+      "confidence": 0.98,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 1534.2241000034846,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "ambiguous-translate-no-text",
+        "category": "ambiguous",
+        "language": "en",
+        "prompt": "translate this please",
+        "expected": [
+          "clarify"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "clarify"
+      ],
+      "mode": "single",
+      "confidence": 0.9,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 981.1040000058711,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "ambiguous-summarize-no-text-fa",
+        "category": "ambiguous",
+        "language": "fa",
+        "prompt": "اینو برام خلاصه کن",
+        "expected": [
+          "clarify"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "summarizer"
+      ],
+      "mode": "single",
+      "confidence": 0.95,
+      "correct": false,
+      "mode_correct": null,
+      "latency_ms": 1182.1010999992723,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "no-skill-poem-en",
+        "category": "no_skill",
+        "language": "en",
+        "prompt": "Write a short poem about the sea.",
+        "expected": [
+          "general_chat"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [
+        "general_chat"
+      ],
+      "mode": "single",
+      "confidence": 0.95,
+      "correct": true,
+      "mode_correct": null,
+      "latency_ms": 1837.2324000083609,
+      "answer": null,
+      "error": null
+    },
+    {
+      "case": {
+        "id": "no-skill-math-history-fa",
+        "category": "no_skill",
+        "language": "fa",
+        "prompt": "چه کسی جبر را ابداع کرد؟",
+        "expected": [
+          "general_chat"
+        ],
+        "accept": [],
+        "mode": null
+      },
+      "predicted": [],
+      "mode": "-",
+      "confidence": 0.0,
+      "correct": false,
+      "mode_correct": null,
+      "latency_ms": 8456.678300004569,
+      "answer": null,
+      "error": "OpenAIRateLimitError: Error code: 429 - Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day: https://openrouter.ai/settings/credits?utm_source=api&utm_campaign=free_daily_limit"
+    }
+  ]
+}

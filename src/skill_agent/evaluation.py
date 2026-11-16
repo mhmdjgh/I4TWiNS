@@ -90,6 +90,15 @@ class EvalReport(BaseModel):
             f"- **Skill-detection accuracy: {self.accuracy:.0%}** "
             f"({sum(r.correct for r in self.results)}/{len(self.results)})",
         ]
+        errored = [r for r in self.results if r.error]
+        if errored:
+            evaluated = [r for r in self.results if not r.error]
+            hits = sum(r.correct for r in evaluated)
+            lines.append(
+                f"- {len(errored)} case(s) failed with a provider error and were not routed; "
+                f"accuracy on the {len(evaluated)} routed cases: {hits}/{len(evaluated)} "
+                f"({hits / len(evaluated):.0%})"
+            )
         mode_cases = [r for r in self.results if r.mode_correct is not None]
         if mode_cases:
             lines.append(
@@ -180,7 +189,7 @@ def evaluate(
             mode=decision.mode if decision else "-",
             confidence=decision.confidence if decision else 0.0,
             correct=decision is not None and is_correct(case, predicted),
-            mode_correct=mode_correct(case, decision, predicted) if decision else False,
+            mode_correct=mode_correct(case, decision, predicted) if decision else None,
             latency_ms=latency,
             answer=answer,
             error=error,
