@@ -4,7 +4,12 @@ version = "0.1.0"
 description = "LangGraph agent that routes free-form English/Persian prompts to summarizer, translator, calculator and chat skills."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "langchain-core>=1.8.1",
+    "langchain-openai>=1.8.0",
+    "pydantic>=2.14.3",
+    "pydantic-settings>=2.16.3",
+]
 
 [project.scripts]
 skill-agent = "skill_agent.cli:app"
