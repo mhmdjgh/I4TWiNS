@@ -18,6 +18,7 @@ from typing import Any, TypedDict
 from langgraph.types import Send
 
 from skill_agent.config import Settings
+from skill_agent.context.budget import ContextBudget
 from skill_agent.skills.base import Skill, SkillTask
 from skill_agent.state import AgentState, SkillResult, TraceEvent
 
@@ -68,11 +69,14 @@ def make_skill_node(skill: Skill) -> Callable[[SkillInput], dict[str, Any]]:
 
 class Scheduler:
     def __init__(self, settings: Settings) -> None:
-        self.settings = settings
+        self.budget = ContextBudget.from_settings(settings)
 
     def task(self, state: AgentState, step: int, input_text: str | None = None) -> SkillTask:
         decision = state["decision"]
         planned = decision.skills[step]
+        max_output = self.budget.output_per_step(
+            len(decision.skills), chained=decision.mode == "sequential"
+        )
         return SkillTask(
             step=step,
             skill=planned.skill,
@@ -81,7 +85,7 @@ class Scheduler:
             language=decision.response_language,
             target_language=planned.target_language,
             input_text=input_text,
-            max_output_tokens=self.settings.max_output_tokens,
+            max_output_tokens=max_output,
         )
 
     def dispatch(self, state: AgentState) -> str | list[Send]:

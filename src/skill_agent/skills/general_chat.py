@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from skill_agent.context.tokens import excerpt
 from skill_agent.prompts import load_prompt
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask
 from skill_agent.skills.registry import register_skill
@@ -33,7 +34,9 @@ class GeneralChat(Skill):
     )
 
     def run(self, task: SkillTask) -> SkillOutput:
-        reply = self.llm.complete(
-            load_prompt("general_chat"), task.prompt, max_tokens=task.max_output_tokens
-        )
-        return SkillOutput(text=reply.text, usage=reply.usage)
+        system = load_prompt("general_chat")
+        room = self.budget.input_room(system, task.max_output_tokens)
+        message = excerpt(task.prompt, room)
+        reply = self.llm.complete(system, message, max_tokens=task.max_output_tokens)
+        notes = ["message excerpted to fit the context"] if message is not task.prompt else []
+        return SkillOutput(text=reply.text, usage=reply.usage, notes=notes)

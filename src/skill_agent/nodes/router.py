@@ -4,10 +4,13 @@ from time import perf_counter
 from typing import Any
 
 from skill_agent.config import Settings
+from skill_agent.context.shortlist import Shortlister
+from skill_agent.context.tokens import excerpt
 from skill_agent.i18n import t
 from skill_agent.llm import LLMClient, StructuredOutputError, Usage
 from skill_agent.prompts import load_prompt, render
 from skill_agent.routing import RoutingDecision, SkillStep
+from skill_agent.skills.base import SkillCard
 from skill_agent.skills.registry import SkillRegistry
 from skill_agent.state import AgentState, TraceEvent
 
@@ -23,9 +26,15 @@ class Router:
         self.llm = llm
         self.registry = registry
         self.settings = settings
+        self.shortlister = Shortlister(
+            registry.cards(),
+            registry.fallback,
+            threshold=settings.shortlist_threshold,
+            top_k=settings.shortlist_top_k,
+        )
 
-    def build_prompt(self) -> str:
-        cards = self.registry.cards()
+    def build_prompt(self, cards: list[SkillCard] | None = None) -> str:
+        cards = self.registry.cards() if cards is None else cards
         return render(
             load_prompt("router"),
             skills="\n".join(card.render() for card in cards),
@@ -36,22 +45,28 @@ class Router:
     def __call__(self, state: AgentState) -> dict[str, Any]:
         start = perf_counter()
         language = state.get("language", "en")
+        text = state["text"]
+        # Context control: only the relevant skill cards, and only the head/tail of long text.
+        cards = self.shortlister.select(text)
+        message = excerpt(text, self.settings.router_excerpt_tokens)
         usage = Usage()
-        detail = ""
+        notes = [f"{len(cards)}/{len(self.registry)} skill cards"]
+        if message is not text:
+            notes.append("message excerpted")
         try:
             decision, usage = self.llm.structured(
-                self.build_prompt(),
-                f"Message:\n{state['text']}",
+                self.build_prompt(cards),
+                f"Message:\n{message}",
                 RoutingDecision,
                 context={
-                    "skills": list(self.registry.names),
+                    "skills": [card.name for card in cards],
                     "max_skills": self.settings.max_skills_per_request,
                 },
                 max_tokens=500,
             )
         except StructuredOutputError as exc:
             decision = self.fallback_decision(language)
-            detail = f"router output invalid, falling back: {exc}"
+            notes.append(f"router output invalid, falling back: {exc}")
 
         decision = self.apply_policies(decision, language)
         event = TraceEvent(
@@ -59,7 +74,7 @@ class Router:
             elapsed_ms=(perf_counter() - start) * 1000,
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,
-            detail=detail or self.describe(decision),
+            detail="; ".join([self.describe(decision), *notes]),
         )
         return {"decision": decision, "trace": [event]}
 
