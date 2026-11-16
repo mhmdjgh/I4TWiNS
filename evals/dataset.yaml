@@ -1,0 +1,104 @@
+# Routing evaluation set.
+#
+# expected: skills the router should select (order matters only when mode is sequential).
+#           "clarify" means the agent should ask a clarifying question instead of running skills.
+# accept:   other selections that are also reasonable for genuinely borderline prompts.
+# mode:     checked for multi-skill cases.
+
+- id: clear-chat-en
+  category: clear
+  language: en
+  prompt: "Hey! How's your day going?"
+  expected: [general_chat]
+
+- id: clear-chat-fa
+  category: clear
+  language: fa
+  prompt: "سلام، خسته نباشی! چه خبر؟"
+  expected: [general_chat]
+
+- id: clear-calc-fa
+  category: clear
+  language: fa
+  prompt: "۲۵ درصد از ۸۴۰ هزار تومان چقدر میشه؟"
+  expected: [calculator]
+
+- id: clear-calc-en
+  category: clear
+  language: en
+  prompt: "What is (17.5 * 42) / 3 + 2^10?"
+  expected: [calculator]
+
+- id: clear-summarize-fa
+  category: clear
+  language: fa
+  prompt: |
+    این متن را در دو جمله خلاصه کن:
+    انرژی خورشیدی در سال‌های اخیر به یکی از ارزان‌ترین منابع تولید برق در جهان تبدیل شده است. کاهش قیمت پنل‌ها و بهبود فناوری باتری باعث شده بسیاری از کشورها سهم انرژی‌های تجدیدپذیر را در سبد انرژی خود افزایش دهند. با این حال، ذخیره‌سازی انرژی برای ساعات شب و روزهای ابری هنوز یک چالش جدی است. کارشناسان معتقدند سرمایه‌گذاری در شبکه‌های هوشمند برق می‌تواند بخشی از این مشکل را حل کند.
+  expected: [summarizer]
+
+- id: clear-translate-en-fa
+  category: clear
+  language: en
+  prompt: "Translate into Persian: The meeting has been moved to Thursday morning because the manager is travelling."
+  expected: [translator]
+
+- id: clear-translate-fa-en
+  category: clear
+  language: fa
+  prompt: "این جمله را به انگلیسی ترجمه کن: «کتاب‌خانه‌ی شهر تا ساعت هشت شب باز است.»"
+  expected: [translator]
+
+- id: multi-summarize-translate-fa
+  category: multi
+  language: fa
+  prompt: |
+    متن زیر را خلاصه کن و بعد خلاصه‌اش را به انگلیسی ترجمه کن:
+    شهر اصفهان با پل‌های تاریخی، میدان نقش جهان و معماری دوره‌ی صفوی یکی از مهم‌ترین مقصدهای گردشگری ایران است. هر سال هزاران گردشگر داخلی و خارجی از این شهر دیدن می‌کنند. خشک شدن زاینده‌رود در سال‌های اخیر اما به چهره‌ی شهر و کسب‌وکارهای وابسته به گردشگری آسیب زده است.
+  expected: [summarizer, translator]
+  mode: sequential
+
+- id: multi-translate-calc-en
+  category: multi
+  language: en
+  prompt: "Translate 'good luck with your exam' into Persian, and also tell me what 15% of 3,200 is."
+  expected: [translator, calculator]
+  mode: parallel
+
+- id: multi-tldr-in-french-en
+  category: multi
+  language: en
+  prompt: "Give me a two-line TL;DR of this paragraph, written in French: Remote work has reshaped city centres. Office occupancy in many capitals is still below pre-2020 levels, cafés and shops near business districts have lost foot traffic, and some cities are converting empty offices into housing."
+  expected: [summarizer, translator]
+  mode: sequential
+
+- id: multi-greeting-calc-fa
+  category: multi
+  language: fa
+  prompt: "سلام! راستی جذر ۱۹۶ چند میشه؟"
+  expected: [general_chat, calculator]
+  accept: [[calculator]]
+
+- id: ambiguous-translate-no-text
+  category: ambiguous
+  language: en
+  prompt: "translate this please"
+  expected: [clarify]
+
+- id: ambiguous-summarize-no-text-fa
+  category: ambiguous
+  language: fa
+  prompt: "اینو برام خلاصه کن"
+  expected: [clarify]
+
+- id: no-skill-poem-en
+  category: no_skill
+  language: en
+  prompt: "Write a short poem about the sea."
+  expected: [general_chat]
+
+- id: no-skill-math-history-fa
+  category: no_skill
+  language: fa
+  prompt: "چه کسی جبر را ابداع کرد؟"
+  expected: [general_chat]
