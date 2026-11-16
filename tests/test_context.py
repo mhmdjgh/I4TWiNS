@@ -194,7 +194,11 @@ def test_long_text_is_translated_in_order() -> None:
 def test_short_text_takes_single_call() -> None:
     model, seen = recording_model()
     task = SkillTask(
-        step=0, skill="summarizer", instruction="", prompt="Summarize: hi", language="en"
+        step=0,
+        skill="summarizer",
+        instruction="",
+        prompt=f"Summarize: {ENGLISH_SENTENCE * 2}",
+        language="en",
     )
     Summarizer(LLMClient(model), Settings(_env_file=None)).run(task)
     assert len(seen) == 1
