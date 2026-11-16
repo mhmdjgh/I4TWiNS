@@ -19,7 +19,7 @@ def make_task(**overrides: object) -> SkillTask:
         "step": 0,
         "skill": "translator",
         "instruction": "translate the text to English",
-        "prompt": "ترجمه کن: سلام دنیا",
+        "prompt": "ترجمه کن: سلام دنیا، امروز هوا آفتابی و خیلی دلپذیر است",
         "language": "fa",
     }
     return SkillTask.model_validate(fields | overrides)
@@ -27,7 +27,7 @@ def make_task(**overrides: object) -> SkillTask:
 
 def test_task_message_fences_content() -> None:
     message = task_message(make_task(target_language="English"))
-    assert message.startswith("<request>\nترجمه کن: سلام دنیا\n</request>")
+    assert message.startswith("<request>\nترجمه کن: سلام دنیا،")
     assert "Task: translate the text to English" in message
     assert "Target language: English" in message
     assert "<text>" not in message
@@ -50,4 +50,4 @@ def test_text_skills_pass_output_budget() -> None:
 def test_general_chat_sends_raw_prompt() -> None:
     model = ScriptedChatModel(responder=echo_user)
     output = GeneralChat(LLMClient(model), Settings(_env_file=None)).run(make_task())
-    assert output.text == "ترجمه کن: سلام دنیا"
+    assert output.text == "ترجمه کن: سلام دنیا، امروز هوا آفتابی و خیلی دلپذیر است"
