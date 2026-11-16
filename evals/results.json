@@ -1,7 +1,7 @@
 {
-  "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-  "created_at": "2026-11-16 09:20 UTC",
-  "full_run": false,
+  "model": "nemotron-3.5-lightning",
+  "created_at": "2026-11-16 12:20 UTC",
+  "full_run": true,
   "results": [
     {
       "case": {
@@ -19,11 +19,14 @@
         "general_chat"
       ],
       "mode": "single",
-      "confidence": 0.99,
+      "confidence": 0.98,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 2079.0020000131335,
-      "answer": null,
+      "latency_ms": 3623.522999987472,
+      "answer": "Hey! I'm doing well, thanks for asking. How about you—what's on your mind today?",
+      "notes": [
+        "general_chat: step 1"
+      ],
       "error": null
     },
     {
@@ -45,8 +48,11 @@
       "confidence": 0.98,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 2149.132100006682,
-      "answer": null,
+      "latency_ms": 10646.405999999843,
+      "answer": "سلام! ممنون، من خوبم. شما چطورید؟ امروز چطور می‌توانم کمکت کنم؟",
+      "notes": [
+        "general_chat: step 1"
+      ],
       "error": null
     },
     {
@@ -65,11 +71,14 @@
         "calculator"
       ],
       "mode": "single",
-      "confidence": 0.99,
+      "confidence": 0.98,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 1208.697200010647,
-      "answer": null,
+      "latency_ms": 1576.2122000014642,
+      "answer": "- ۲۵ درصد از ۸۴۰ هزار تومان: `840000 * 25 / 100` = **210000**",
+      "notes": [
+        "calculator: step 1; tool calculate"
+      ],
       "error": null
     },
     {
@@ -91,8 +100,11 @@
       "confidence": 0.99,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 1881.3053000048967,
-      "answer": null,
+      "latency_ms": 1611.4388999994844,
+      "answer": "- (17.5 * 42) / 3 + 2^10: `(17.5 * 42) / 3 + 2 ** 10` = **1269**",
+      "notes": [
+        "calculator: step 1; tool calculate"
+      ],
       "error": null
     },
     {
@@ -114,8 +126,11 @@
       "confidence": 0.98,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 1172.9171999904793,
-      "answer": null,
+      "latency_ms": 1694.6877000009408,
+      "answer": "انرژی خورشیدی به یکی از ارزان‌ترین منابع تولید برق جهان تبدیل شده است، اما ذخیره‌سازی انرژی برای شب و روزهای ابری همچنان چالش باقی دارد.",
+      "notes": [
+        "summarizer: step 1"
+      ],
       "error": null
     },
     {
@@ -134,11 +149,14 @@
         "translator"
       ],
       "mode": "single",
-      "confidence": 0.99,
+      "confidence": 1.0,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 1054.9045999941882,
-      "answer": null,
+      "latency_ms": 3439.652200002456,
+      "answer": "جلسه به ساعت صبح پنجشنبه منتقل شد چون مدیر مسافرت است.",
+      "notes": [
+        "translator: step 1; corrected after check: \"Thursday\" must be translated as «پنجشنبه»"
+      ],
       "error": null
     },
     {
@@ -160,8 +178,11 @@
       "confidence": 0.99,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 1344.8946999997133,
-      "answer": null,
+      "latency_ms": 2179.0640000108397,
+      "answer": "The city library is open until eight o'clock at night.",
+      "notes": [
+        "translator: step 1"
+      ],
       "error": null
     },
     {
@@ -182,11 +203,15 @@
         "translator"
       ],
       "mode": "sequential",
-      "confidence": 0.96,
+      "confidence": 0.98,
       "correct": true,
       "mode_correct": true,
-      "latency_ms": 1364.8407000000589,
-      "answer": null,
+      "latency_ms": 3576.4447999972617,
+      "answer": "Isfahan, with its bridges, Naqsh-e Jahan Square, and Safavid architecture, faces a tourism threat due to the drying Zayandeh River.",
+      "notes": [
+        "summarizer: step 1; shortened after check: 105 -> 20 words",
+        "translator: step 2"
+      ],
       "error": null
     },
     {
@@ -210,8 +235,12 @@
       "confidence": 0.95,
       "correct": true,
       "mode_correct": true,
-      "latency_ms": 1296.3116000028094,
-      "answer": null,
+      "latency_ms": 3999.3579000001773,
+      "answer": "**Translation**\n\nبسیار موفق\n15% از ۳۲۰۰ ۴۸۰ است.\n\n**Calculation**\n\n- ۱۵ درصد از ۳۲۰۰: `3200 * 15 / 100` = **480**",
+      "notes": [
+        "translator: step 1",
+        "calculator: step 2; tool calculate"
+      ],
       "error": null
     },
     {
@@ -228,15 +257,17 @@
         "mode": "sequential"
       },
       "predicted": [
-        "summarizer",
-        "translator"
+        "summarizer"
       ],
-      "mode": "sequential",
-      "confidence": 0.96,
-      "correct": true,
-      "mode_correct": true,
-      "latency_ms": 1538.662100007059,
-      "answer": null,
+      "mode": "single",
+      "confidence": 0.98,
+      "correct": false,
+      "mode_correct": false,
+      "latency_ms": 2149.1219000017736,
+      "answer": "Télétravail a redessiné les centres-villes : taux d'occupation des bureaux toujours bas et commerces des districts d'affaires en perte de trafic, tandis que certaines villes transforment les bureaux vacants en logements.",
+      "notes": [
+        "summarizer: step 1"
+      ],
       "error": null
     },
     {
@@ -263,8 +294,11 @@
       "confidence": 0.98,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 1534.2241000034846,
-      "answer": null,
+      "latency_ms": 1612.6954999926966,
+      "answer": "- جذر ۱۹۶: `sqrt(196)` = **14**",
+      "notes": [
+        "calculator: step 1; tool calculate"
+      ],
       "error": null
     },
     {
@@ -286,8 +320,9 @@
       "confidence": 0.9,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 981.1040000058711,
-      "answer": null,
+      "latency_ms": 986.3140000088606,
+      "answer": "Sure! Which text should I translate, and into which language?",
+      "notes": [],
       "error": null
     },
     {
@@ -303,14 +338,15 @@
         "mode": null
       },
       "predicted": [
-        "summarizer"
+        "clarify"
       ],
       "mode": "single",
-      "confidence": 0.95,
-      "correct": false,
+      "confidence": 0.9,
+      "correct": true,
       "mode_correct": null,
-      "latency_ms": 1182.1010999992723,
-      "answer": null,
+      "latency_ms": 876.7320000042673,
+      "answer": "متنی را که باید خلاصه کنم بفرستید.",
+      "notes": [],
       "error": null
     },
     {
@@ -329,11 +365,14 @@
         "general_chat"
       ],
       "mode": "single",
-      "confidence": 0.95,
+      "confidence": 0.9,
       "correct": true,
       "mode_correct": null,
-      "latency_ms": 1837.2324000083609,
-      "answer": null,
+      "latency_ms": 3642.528999989736,
+      "answer": "The ocean stretches, a patient blue,  \nWhere waves whisper to the sand.  \nIn its depth, the world is quiet,  \nHolding the sky in its palm.",
+      "notes": [
+        "general_chat: step 1"
+      ],
       "error": null
     },
     {
@@ -348,14 +387,19 @@
         "accept": [],
         "mode": null
       },
-      "predicted": [],
-      "mode": "-",
-      "confidence": 0.0,
-      "correct": false,
+      "predicted": [
+        "general_chat"
+      ],
+      "mode": "single",
+      "confidence": 0.9,
+      "correct": true,
       "mode_correct": null,
-      "latency_ms": 8456.678300004569,
-      "answer": null,
-      "error": "OpenAIRateLimitError: Error code: 429 - Rate limit exceeded: free-models-per-day. Add 10 credits to unlock 1000 free model requests per day: https://openrouter.ai/settings/credits?utm_source=api&utm_campaign=free_daily_limit"
+      "latency_ms": 3810.8814000006532,
+      "answer": "جبر را به صورت علمی و منظم محمد بن موسی خوارزمی در قرن نهم میلادی ابداع کرد، اما ریشه‌های آن به معادلات بابل و هند نیز برمی‌گردد.",
+      "notes": [
+        "general_chat: step 1"
+      ],
+      "error": null
     }
   ]
 }
