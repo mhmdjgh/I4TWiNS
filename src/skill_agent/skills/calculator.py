@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from skill_agent.context.tokens import excerpt
 from skill_agent.prompts import load_prompt, render
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, ToolCall
 from skill_agent.skills.registry import register_skill
@@ -71,7 +72,7 @@ class Calculator(Skill):
 
     def run(self, task: SkillTask) -> SkillOutput:
         system = render(load_prompt("calculator"), functions=", ".join(FUNCTIONS))
-        user = task.input_text or task.prompt
+        user = excerpt(task.input_text or task.prompt, self.budget.input_room(system, 600))
         if task.instruction:
             user = f"{user}\n\n(Focus: {task.instruction})"
 
