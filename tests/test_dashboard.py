@@ -45,7 +45,7 @@ def test_chat_answers_and_shows_the_pipeline(scripted_agent: None) -> None:
     assert not app.exception
     assert any("**210**" in m.value for m in app.markdown)
     html = " ".join(str(getattr(block, "value", "")) for block in app.get("html"))
-    assert "sa-pipeline" in html and "Calculator" in html
+    assert "sa-steps" in html and "Calculator" in html
 
 
 def test_persian_interface_switches_to_rtl(scripted_agent: None) -> None:
@@ -59,7 +59,7 @@ def test_persian_interface_switches_to_rtl(scripted_agent: None) -> None:
 
 
 @pytest.mark.parametrize(
-    ("page", "expected"), [("architecture_page", "sa-steps"), ("evaluation_page", "sa-case")]
+    ("page", "expected"), [("architecture_page", "sa-flow"), ("evaluation_page", "sa-case")]
 )
 def test_pages_render(scripted_agent: None, page: str, expected: str) -> None:
     def script(module: str) -> None:
