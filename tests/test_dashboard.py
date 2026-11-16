@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,9 @@ from skill_agent.config import Settings
 from skill_agent.llm import LLMClient
 from tests.fakes import ScriptedChatModel, replies
 
-APP = str(Path(__file__).parent.parent / "dashboard" / "app.py")
+DASHBOARD = Path(__file__).parent.parent / "dashboard"
+APP = str(DASHBOARD / "app.py")
+sys.path.insert(0, str(DASHBOARD))  # the dashboard's modules import each other by name
 
 
 @pytest.fixture
@@ -32,14 +35,42 @@ def scripted_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(Agent, "from_settings", classmethod(build))
 
 
-def test_dashboard_runs_a_prompt(scripted_agent: None) -> None:
+def test_chat_answers_and_shows_the_pipeline(scripted_agent: None) -> None:
     app = AppTest.from_file(APP, default_timeout=30).run()
     assert not app.exception
-    assert [tab.label for tab in app.tabs] == ["Playground", "Architecture", "Evaluation"]
+    assert any("One prompt" in block.value for block in app.get("html") if hasattr(block, "value"))
 
-    app.text_area(key="prompt").input("۲۵ درصد از ۸۴۰ چند میشه؟").run()
-    next(b for b in app.button if b.label == "Run").click().run()
+    app.chat_input[0].set_value("۲۵ درصد از ۸۴۰ چند میشه؟").run()
 
     assert not app.exception
     assert any("**210**" in m.value for m in app.markdown)
-    assert any(metric.label == "Skills" and metric.value == "calculator" for metric in app.metric)
+    html = " ".join(str(getattr(block, "value", "")) for block in app.get("html"))
+    assert "sa-pipeline" in html and "Calculator" in html
+
+
+def test_persian_interface_switches_to_rtl(scripted_agent: None) -> None:
+    app = AppTest.from_file(APP, default_timeout=30)
+    app.session_state["ui_lang"] = "fa"
+    app.run()
+    assert not app.exception
+    html = " ".join(str(getattr(block, "value", "")) for block in app.get("html"))
+    assert "direction: rtl" in html
+    assert "یک پیام، اسکیل‌های درست." in html
+
+
+@pytest.mark.parametrize(
+    ("page", "expected"), [("architecture_page", "sa-steps"), ("evaluation_page", "sa-case")]
+)
+def test_pages_render(scripted_agent: None, page: str, expected: str) -> None:
+    def script(module: str) -> None:
+        import importlib
+
+        import theme
+
+        theme.apply("en")
+        importlib.import_module(module).render()
+
+    app = AppTest.from_function(script, args=(page,), default_timeout=30).run()
+    assert not app.exception
+    html = " ".join(str(getattr(block, "value", "")) for block in app.get("html"))
+    assert expected in html
