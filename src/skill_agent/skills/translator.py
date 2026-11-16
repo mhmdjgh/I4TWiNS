@@ -4,6 +4,7 @@ from skill_agent.context.chunking import chunk_text, split_instruction
 from skill_agent.llm import Usage
 from skill_agent.prompts import load_prompt
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, task_message
+from skill_agent.skills.checks import translation_issues
 from skill_agent.skills.registry import register_skill
 
 
@@ -38,10 +39,32 @@ class Translator(Skill):
     def run(self, task: SkillTask) -> SkillOutput:
         system = load_prompt("translator")
         message = task_message(task)
-        if self.budget.fits(system, message, task.max_output_tokens):
-            reply = self.llm.complete(system, message, max_tokens=task.max_output_tokens)
+        if not self.budget.fits(system, message, task.max_output_tokens):
+            return self._chunked(system, task)
+
+        reply = self.llm.complete(system, message, max_tokens=task.max_output_tokens)
+        if task.input_text is not None:
+            source, delimited = task.input_text, True
+        else:
+            instruction, source = split_instruction(task.prompt)
+            delimited = bool(instruction)
+        issues = translation_issues(source, reply.text, check_numbers=delimited)
+        if not issues:
             return SkillOutput(text=reply.text, usage=reply.usage)
-        return self._chunked(system, task)
+
+        # One targeted correction: the model is told exactly which facts it got wrong.
+        problems = "\n".join(f"- {issue}" for issue in issues)
+        repair = (
+            f"{message}\n\n"
+            f"Your previous translation:\n<translation>\n{reply.text}\n</translation>\n"
+            f"It has these problems:\n{problems}\nReturn the corrected translation only."
+        )
+        fixed = self.llm.complete(system, repair, max_tokens=task.max_output_tokens)
+        return SkillOutput(
+            text=fixed.text,
+            usage=reply.usage + fixed.usage,
+            notes=[f"corrected after check: {'; '.join(issues)}"],
+        )
 
     def _chunked(self, system: str, task: SkillTask) -> SkillOutput:
         """Translate a long text chunk by chunk.

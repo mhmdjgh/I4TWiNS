@@ -66,6 +66,12 @@ def _message_text(message: BaseMessage) -> str:
     return "".join(parts).strip()
 
 
+def _is_truncation(exc: Exception) -> bool:
+    # openai.LengthFinishReasonError, raised when a JSON-mode reply hits max_tokens. Matched by
+    # name so this module does not depend on a specific provider SDK.
+    return type(exc).__name__ == "LengthFinishReasonError"
+
+
 def _usage_of(message: BaseMessage) -> Usage:
     meta = getattr(message, "usage_metadata", None) or {}
     return Usage(int(meta.get("input_tokens", 0)), int(meta.get("output_tokens", 0)))
@@ -79,11 +85,15 @@ class LLMClient:
         system_role: bool = True,
         json_mode: bool = False,
         max_repairs: int = 1,
+        reasoning_tokens: int = 0,
     ) -> None:
         self._model = model
         self._system_role = system_role
         self._json_mode = json_mode
         self._max_repairs = max_repairs
+        # Reasoning models spend hidden tokens before answering, and those count against
+        # max_tokens. Callers size max_tokens for the visible answer; this pads it.
+        self._reasoning_tokens = reasoning_tokens
 
     def _messages(self, system: str, user: str) -> list[BaseMessage]:
         if self._system_role:
@@ -91,6 +101,8 @@ class LLMClient:
         return [HumanMessage(f"{system}\n\n---\n\n{user}")]
 
     def _invoke(self, messages: list[BaseMessage], **kwargs: Any) -> AIMessage | BaseMessage:
+        if kwargs.get("max_tokens"):
+            kwargs["max_tokens"] += self._reasoning_tokens
         return self._model.invoke(messages, **{k: v for k, v in kwargs.items() if v is not None})
 
     def complete(
@@ -118,7 +130,8 @@ class LLMClient:
         """Ask for a JSON object and validate it against `schema`.
 
         On a parse/validation failure the error is sent back to the model once so it can repair
-        its own answer; small models fix most formatting slips this way.
+        its own answer; small models fix most formatting slips this way. A reply cut off by the
+        token limit is retried with twice the limit instead.
         """
         messages = self._messages(system, user)
         extra = {"response_format": {"type": "json_object"}} if self._json_mode else {}
@@ -126,9 +139,17 @@ class LLMClient:
         error: Exception | None = None
 
         for _ in range(self._max_repairs + 1):
-            reply = self._invoke(messages, max_tokens=max_tokens, temperature=0.0, **extra)
+            try:
+                reply = self._invoke(messages, max_tokens=max_tokens, temperature=0.0, **extra)
+            except Exception as exc:
+                if not _is_truncation(exc):
+                    raise
+                error, max_tokens = exc, max_tokens * 2 if max_tokens else None
+                continue
             usage += _usage_of(reply)
             text = _message_text(reply)
+            if reply.response_metadata.get("finish_reason") == "length" and max_tokens:
+                max_tokens *= 2
             try:
                 return schema.model_validate_json(extract_json(text), context=context), usage
             except ValueError as exc:  # pydantic's ValidationError is a ValueError too
@@ -152,6 +173,13 @@ def build_llm(settings: Settings) -> LLMClient:
             "No API key configured. Set LLM_API_KEY (or OPENROUTER_API_KEY) in .env."
         )
 
+    # OpenRouter's unified reasoning switch; providers that do not support it ignore it.
+    reasoning = (
+        {"enabled": False}
+        if settings.llm_reasoning == "off"
+        else {"effort": settings.llm_reasoning}
+    )
+
     def chat_model(name: str) -> BaseChatModel:
         return ChatOpenAI(
             model=name,
@@ -160,6 +188,7 @@ def build_llm(settings: Settings) -> LLMClient:
             temperature=settings.llm_temperature,
             timeout=settings.llm_timeout_s,
             max_retries=settings.llm_max_retries,
+            extra_body={"reasoning": reasoning},
             default_headers={
                 "HTTP-Referer": "https://github.com/mhmdjgh/I4TWiNS",
                 "X-Title": "skill-agent",
@@ -170,4 +199,9 @@ def build_llm(settings: Settings) -> LLMClient:
     if settings.llm_fallback_model:
         model = model.with_fallbacks([chat_model(settings.llm_fallback_model)])
 
-    return LLMClient(model, system_role=settings.llm_system_role, json_mode=settings.llm_json_mode)
+    return LLMClient(
+        model,
+        system_role=settings.llm_system_role,
+        json_mode=settings.llm_json_mode,
+        reasoning_tokens=0 if settings.llm_reasoning == "off" else settings.reasoning_allowance,
+    )

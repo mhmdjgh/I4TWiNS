@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,13 +19,17 @@ class Settings(BaseSettings):
     llm_api_key: SecretStr | None = Field(
         default=None, validation_alias=AliasChoices("LLM_API_KEY", "OPENROUTER_API_KEY")
     )
-    llm_model: str = "google/gemma-4-31b-it:free"
-    llm_fallback_model: str | None = "google/gemma-4-26b-a4b-it:free"
+    llm_model: str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    llm_fallback_model: str | None = "google/gemma-4-31b-it:free"
     llm_temperature: float = 0.2
     llm_timeout_s: float = 90.0
     llm_max_retries: int = 3
     llm_json_mode: bool = True
     llm_system_role: bool = True
+    # Hidden "thinking" for reasoning models. Off by default: routing measured ~6x faster with
+    # the same decisions, and the free tier is rate limited per request, not per token.
+    llm_reasoning: Literal["off", "low", "medium", "high"] = "off"
+    reasoning_allowance: int = Field(default=1_024, ge=0)
 
     # Routing
     max_skills_per_request: int = Field(default=2, ge=1)
