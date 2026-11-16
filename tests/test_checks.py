@@ -44,6 +44,23 @@ def test_accepts_faithful_translations(source: str, translation: str) -> None:
     assert translation_issues(source, translation) == []
 
 
+def test_mostly_english_output_is_still_checked_as_persian() -> None:
+    # «ببینمت tomorrow» has more Latin than Persian letters; guessing would call it English.
+    assert translation_issues("see you tomorrow", "ببینمت tomorrow") == []
+    issues = translation_issues("see you tomorrow", "ببینمت tomorrow", target="fa")
+    assert issues == ["English words left untranslated: tomorrow"]
+
+
+def test_target_code() -> None:
+    from skill_agent.skills.checks import target_code
+
+    assert target_code("Persian", "hello") == "fa"
+    assert target_code("English", "سلام") == "en"
+    assert target_code(None, "سلام دنیا") == "en"
+    assert target_code(None, "hello") == "fa"
+    assert target_code("French", "hello") is None
+
+
 def test_translator_repairs_flagged_translation() -> None:
     model = ScriptedChatModel(
         responder=replies("جلسه به صبح جمعه منتقل شده است.", "جلسه به صبح پنج‌شنبه منتقل شده است.")
