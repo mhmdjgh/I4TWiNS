@@ -4,7 +4,7 @@ from skill_agent.context.chunking import chunk_text, split_instruction
 from skill_agent.llm import Usage
 from skill_agent.prompts import load_prompt
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, task_message
-from skill_agent.skills.checks import translation_issues
+from skill_agent.skills.checks import target_code, translation_issues
 from skill_agent.skills.registry import register_skill
 
 
@@ -48,7 +48,12 @@ class Translator(Skill):
         else:
             instruction, source = split_instruction(task.prompt)
             delimited = bool(instruction)
-        issues = translation_issues(source, reply.text, check_numbers=delimited)
+        issues = translation_issues(
+            source,
+            reply.text,
+            check_numbers=delimited,
+            target=target_code(task.target_language, source),
+        )
         if not issues:
             return SkillOutput(text=reply.text, usage=reply.usage)
 

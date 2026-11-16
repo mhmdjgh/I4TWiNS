@@ -61,18 +61,47 @@ def _untranslated_english(persian_text: str) -> list[str]:
     return sorted(set(_LOWERCASE_LATIN_WORD.findall(prose)))
 
 
-def translation_issues(source: str, translation: str, *, check_numbers: bool = True) -> list[str]:
+_LANGUAGE_CODES = {
+    "persian": "fa",
+    "farsi": "fa",
+    "fa": "fa",
+    "فارسی": "fa",
+    "english": "en",
+    "en": "en",
+    "انگلیسی": "en",
+}
+
+
+def target_code(target_language: str | None, source: str) -> str | None:
+    """Language code the translation should be in, when it can be known without the output.
+
+    Guessing from the output itself fails exactly when the output is wrong: «ببینمت tomorrow»
+    has more Latin than Persian letters and would look like an English translation.
+    """
+    if target_language is None:
+        return "en" if detect_language(source) == "fa" else "fa"
+    return _LANGUAGE_CODES.get(target_language.strip().lower())
+
+
+def translation_issues(
+    source: str,
+    translation: str,
+    *,
+    check_numbers: bool = True,
+    target: str | None = None,
+) -> list[str]:
     """Facts from the source that are missing or changed in the translation.
 
     Set `check_numbers=False` when the source may include text that is not being translated
-    (e.g. a calculation handled by another skill in the same prompt).
+    (e.g. a calculation handled by another skill in the same prompt). `target` is the expected
+    language code; without it the language is guessed from the translation.
     """
     issues = []
     missing = sorted(_numbers(source) - _numbers(translation)) if check_numbers else []
     if missing:
         issues.append(f"numbers missing or changed: {', '.join(missing)}")
 
-    target = detect_language(translation)
+    target = target or detect_language(translation)
     if target == "fa":
         expected, present = _english_weekdays(source), _persian_weekdays(translation)
         issues += [
