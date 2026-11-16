@@ -45,7 +45,6 @@ answer   Isfahan, with its historic bridges, Naqsh-e Jahan Square, and Safavid a
 12. [Project layout](#12-project-layout)
 13. [Known limitations and the road to production](#13-known-limitations-and-the-road-to-production)
 14. [Assumptions](#14-assumptions)
-15. [AI usage disclosure](#15-ai-usage-disclosure)
 
 ---
 
@@ -496,11 +495,3 @@ Where the brief left room, these choices were made:
    architecture supports more of each, which is where the context mechanisms in §6 come in.
 8. **"Parameters"**: total parameter count (30B for the MoE primary, of which ~3B are active per
    token).
-
----
-
-## 15. AI usage disclosure
-
-An AI coding assistant (Claude Code) was used during development, as the brief allows. The
-instructions it worked from are in [`CLAUDE.md`](CLAUDE.md), and [`AI_USAGE.md`](AI_USAGE.md)
-describes where and how it was used.
