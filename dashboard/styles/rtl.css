@@ -1,5 +1,0 @@
-.stMainBlockContainer { direction: rtl; }
-html, body, .stApp, .stMarkdown, button, input, textarea {
-  font-family: "Vazirmatn", "Inter", system-ui, sans-serif !important;
-}
-code, pre { direction: ltr; unicode-bidi: isolate; }

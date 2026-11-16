@@ -2,7 +2,8 @@
 
 A second, thin interface next to the CLI: it calls the same `Agent` in-process (there is no web
 API layer) and makes the internals visible: routing decision, execution steps, tool calls and
-the evaluation results. Light, minimal, responsive, in English or Persian (right-to-left).
+the evaluation results. Light, minimal and responsive. The interface is in English; prompts and
+answers can be English or Persian, and Persian answers are shown right-to-left.
 
     uv run --extra dashboard streamlit run dashboard/app.py
 """
@@ -15,15 +16,12 @@ import evaluation_page
 import streamlit as st
 import theme
 from services import get_agent
-from strings import language, t
+from strings import t
 
 from skill_agent.config import get_settings
 
 st.set_page_config(page_title="Skill Agent", page_icon=":material/hub:", layout="centered")
-
-if st.session_state.get("ui_lang") not in ("en", "fa"):
-    st.session_state.ui_lang = "en"
-theme.apply(language())
+theme.apply()
 
 pages = [
     st.Page(chat_page.render, title=t("nav.chat"), url_path="chat", default=True),
@@ -64,18 +62,8 @@ def topbar() -> None:
         with st.container(horizontal=True, wrap=True, gap="small", width="content"):
             for page in pages:
                 st.page_link(page)
-        with st.container(
-            horizontal=True, gap="small", width="content", vertical_alignment="center"
-        ):
-            st.segmented_control(
-                t("side.language"),
-                options=["en", "fa"],
-                format_func=lambda code: "English" if code == "en" else "فارسی",
-                key="ui_lang",
-                label_visibility="collapsed",
-            )
-            with st.popover("", icon=":material/tune:"):
-                settings_menu()
+        with st.popover("", icon=":material/tune:"):
+            settings_menu()
 
 
 topbar()

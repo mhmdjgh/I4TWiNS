@@ -8,16 +8,15 @@ from html import escape
 import streamlit as st
 from components import meta_line, steps
 from services import get_agent
-from strings import language, t
+from strings import t
 
 from skill_agent.agent import AgentResponse
 from skill_agent.text.persian import is_rtl
 
-# (English label, Persian label, prompt). Deliberately different from the evaluation prompts.
-SUGGESTIONS: list[tuple[str, str, str]] = [
+# (label, prompt). Prompts mix English and Persian on purpose; they differ from the eval set.
+SUGGESTIONS: list[tuple[str, str]] = [
     (
         "Summarize, then translate",
-        "خلاصه، بعد ترجمه",
         "این متن را خلاصه کن و خلاصه‌اش را به انگلیسی ترجمه کن: "
         "شیراز با باغ ارم، آرامگاه حافظ و سعدی و بازار وکیل هر سال میزبان هزاران گردشگر است. "
         "فصل بهار و جشنواره‌های فرهنگی بیشترین مسافر را به این شهر می‌آورد، "
@@ -25,17 +24,15 @@ SUGGESTIONS: list[tuple[str, str, str]] = [
     ),
     (
         "Two tasks at once",
-        "دو کار هم‌زمان",
         "Translate 'see you tomorrow' into Persian, and what is 18% of 2,450?",
     ),
     (
         "Word problem",
-        "مسئله‌ی محاسباتی",
         "سه تا کتاب ۸۵ هزار تومنی و دو تا خودکار ۱۲ هزار تومنی خریدم، جمعش چقدر میشه؟",
     ),
-    ("Translate", "ترجمه", "Translate into Persian: The workshop starts on Monday at 9 a.m."),
-    ("Small talk", "گفت‌وگو", "سلام! تو چه کارهایی می‌تونی برام انجام بدی؟"),
-    ("Ambiguous", "مبهم", "translate this please"),
+    ("Translate", "Translate into Persian: The workshop starts on Monday at 9 a.m."),
+    ("Small talk", "سلام! تو چه کارهایی می‌تونی برام انجام بدی؟"),
+    ("Ambiguous", "translate this please"),
 ]
 
 
@@ -49,10 +46,9 @@ def _welcome() -> None:
         f'<div class="sa-welcome"><h1>{escape(t("chat.hero.title"))}</h1>'
         f"<p>{escape(t('chat.hero.subtitle'))}</p></div>"
     )
-    fa = language() == "fa"
     with st.container(horizontal=True, wrap=True, gap="small", key="suggestions"):
-        for i, (label_en, label_fa, prompt) in enumerate(SUGGESTIONS):
-            if st.button(label_fa if fa else label_en, key=f"suggest-{i}", help=prompt):
+        for i, (label, prompt) in enumerate(SUGGESTIONS):
+            if st.button(label, key=f"suggest-{i}", help=prompt):
                 st.session_state.pending = prompt
 
 
@@ -85,15 +81,18 @@ def _details(response: AgentResponse) -> None:
             st.json(json.loads(response.model_dump_json()), expanded=False)
 
 
+def answer_direction(response: AgentResponse) -> str:
+    """Text direction of an answer: Persian answers read right-to-left."""
+    decision = response.decision
+    answer_language = decision.response_language if decision else response.language
+    return "rtl" if is_rtl(answer_language) else "ltr"
+
+
 def _exchange(response: AgentResponse, index: int) -> None:
     with st.chat_message("user", avatar=":material/person:"):
         st.html(f'<div class="sa-user">{escape(response.prompt)}</div>')
     with st.chat_message("assistant", avatar=":material/hub:"):
-        decision = response.decision
-        answer_language = decision.response_language if decision else response.language
-        # The answer keeps its own direction whatever the interface language is.
-        direction = "rtl" if is_rtl(answer_language) else "ltr"
-        with st.container(key=f"answer-{index}-{direction}"):
+        with st.container(key=f"answer-{index}-{answer_direction(response)}"):
             st.markdown(response.answer)
             if response.error:
                 st.caption(f"⚠️ {response.error}")

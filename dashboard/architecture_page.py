@@ -7,7 +7,7 @@ from html import escape
 import streamlit as st
 from components import heading, skill, subheading
 from services import get_agent
-from strings import language, t
+from strings import t
 
 from skill_agent.config import get_settings
 from skill_agent.skills import registry
@@ -28,66 +28,27 @@ flowchart LR
 """
 
 LIFECYCLE = [
-    ("Preprocess", "پیش‌پردازش",
-     "Normalize Persian letters and half-spaces, guess the language.",
-     "یکسان‌سازی حروف و نیم‌فاصله‌ی فارسی و تشخیص زبان."),
-    ("Route", "مسیریابی",
-     "One LLM call returns validated JSON: skills, mode, language, confidence.",
-     "یک فراخوانی LLM خروجی JSON معتبر می‌دهد: اسکیل‌ها، حالت، زبان، اطمینان."),
-    ("Apply policies", "اعمال قواعد",
-     "Code handles fallback, clarification and low confidence.",
-     "حالت جایگزین، درخواست توضیح و اطمینان پایین با کد مدیریت می‌شود."),
-    ("Run skills", "اجرای اسکیل‌ها",
-     "In parallel, or chained; each skill gets only its share of the message.",
-     "موازی یا زنجیره‌ای؛ هر اسکیل فقط سهم خودش از پیام را می‌گیرد."),
-    ("Check & compose", "بررسی و ترکیب",
-     "Deterministic checks repair outputs; results are joined without an LLM.",
-     "بررسی‌های قطعی خروجی را اصلاح می‌کنند و نتایج بدون LLM ترکیب می‌شوند."),
-]  # fmt: skip
+    ("Preprocess", "Normalize Persian letters and half-spaces, guess the language."),
+    ("Route", "One LLM call returns validated JSON: skills, mode, language, confidence."),
+    ("Apply policies", "Code handles fallback, clarification and low confidence."),
+    ("Run skills", "In parallel, or chained; each skill gets only its share of the message."),
+    ("Check & compose", "Deterministic checks repair outputs; results are joined without an LLM."),
+]
 
 CONTEXT = [
-    ("More skills", "اسکیل‌های بیشتر",
+    ("More skills",
      "The router reads compact cards; above a threshold only the top-k most relevant.",
-     "مسیریاب فقط کارت‌های کوتاه را می‌بیند و بالاتر از آستانه، فقط k کارت مرتبط‌تر را.",
      "shortlist"),
-    ("Long messages", "پیام‌های طولانی",
-     "The router reads only the beginning and end of a long message.",
-     "مسیریاب فقط ابتدا و انتهای پیام طولانی را می‌خواند.", "excerpt"),
-    ("Several skills", "چند اسکیل هم‌زمان",
-     "Parallel skills share one output budget; chained outputs are capped.",
-     "اسکیل‌های موازی یک بودجه‌ی خروجی مشترک دارند و خروجی زنجیره سقف دارد.", "budget"),
-    ("Chains", "زنجیره‌ها",
-     "The next step receives only the previous output and the user's instruction.",
-     "مرحله‌ی بعد فقط خروجی قبلی و دستور کاربر را می‌گیرد.", "handoff"),
-    ("Very long texts", "متن‌های خیلی بلند",
-     "Map-reduce summaries and chunked translation keep every call inside the window.",
-     "خلاصه‌سازی map-reduce و ترجمه‌ی تکه‌تکه، هر فراخوانی را داخل پنجره نگه می‌دارد.",
-     "chunks"),
-    ("Hidden reasoning", "استدلال پنهان",
-     "Off by default, opt-in per skill; an empty answer is retried once.",
-     "به‌طور پیش‌فرض خاموش، قابل فعال‌سازی برای هر اسکیل؛ پاسخ خالی یک بار تکرار می‌شود.",
-     "reasoning"),
+    ("Long messages", "The router reads only the beginning and end of a long message.", "excerpt"),
+    ("Several skills",
+     "Parallel skills share one output budget; chained outputs are capped.", "budget"),
+    ("Chains",
+     "The next step receives only the previous output and the user's instruction.", "handoff"),
+    ("Very long texts",
+     "Map-reduce summaries and chunked translation keep every call inside the window.", "chunks"),
+    ("Hidden reasoning",
+     "Off by default, opt-in per skill; an empty answer is retried once.", "reasoning"),
 ]  # fmt: skip
-
-# Persian descriptions for the interface. The router keeps reading the English cards.
-SKILL_TEXT_FA = {
-    "summarizer": (
-        "متن داده‌شده را به خلاصه‌ای کوتاه‌تر تبدیل می‌کند.",
-        "کاربر متنی داده و خلاصه، چکیده یا نکات کلیدی آن را می‌خواهد.",
-    ),
-    "translator": (
-        "متن را بین زبان‌ها (فارسی، انگلیسی و دیگر زبان‌ها) ترجمه می‌کند.",
-        "کاربر متنی داده و آن را به زبان دیگری می‌خواهد، یا معادل عبارتی را می‌پرسد.",
-    ),
-    "calculator": (
-        "محاسبات ریاضی را با یک ابزار واقعی و امن انجام می‌دهد.",
-        "کاربر نتیجه‌ی عددی می‌خواهد: حساب، درصد، توان، ریشه، مثلثات یا مسئله‌ی متنی.",
-    ),
-    "general_chat": (
-        "سلام و احوال‌پرسی، گفت‌وگوی روزمره و پرسش‌های عمومی.",
-        "پیام گفت‌وگویی یا پرسش عمومی است، یا هیچ اسکیل دیگری مناسب نیست.",
-    ),
-}
 
 
 def _setting(kind: str) -> str:
@@ -131,13 +92,11 @@ def _mermaid(diagram: str, height: int) -> None:
 
 
 def render() -> None:
-    fa = language() == "fa"
     st.html(heading(t("arch.title"), t("arch.subtitle")))
 
     st.html(subheading(t("arch.lifecycle")))
     flow = "".join(
-        f"<div><b>{escape(fa_t if fa else en_t)}</b><p>{escape(fa_d if fa else en_d)}</p></div>"
-        for en_t, fa_t, en_d, fa_d in LIFECYCLE
+        f"<div><b>{escape(title)}</b><p>{escape(text)}</p></div>" for title, text in LIFECYCLE
     )
     st.html(f'<div class="sa-flow">{flow}</div>')
 
@@ -152,22 +111,19 @@ def render() -> None:
     st.html(subheading(t("arch.skills"), t("arch.skills.note")))
     rows = []
     for card in registry.cards():
-        summary, use_when = card.summary, card.use_when
-        if fa and card.name in SKILL_TEXT_FA:
-            summary, use_when = SKILL_TEXT_FA[card.name]
         examples = "".join(f'<span class="sa-example">{escape(e)}</span>' for e in card.examples)
         rows.append(
             f'<div class="sa-row"><div>{skill(card.name)}<br><code>{card.name}</code></div>'
-            f"<div><p>{escape(summary)}</p><p>{escape(t('arch.when'))}: {escape(use_when)}</p>"
+            f"<div><p>{escape(card.summary)}</p>"
+            f"<p>{escape(t('arch.when'))}: {escape(card.use_when)}</p>"
             f'<div class="sa-examples">{examples}</div></div></div>'
         )
     st.html(f'<div class="sa-panel">{"".join(rows)}</div>')
 
     st.html(subheading(t("arch.context"), t("arch.context.note")))
     rows = [
-        f'<div class="sa-row"><b>{escape(fa_t if fa else en_t)}</b>'
-        f"<div><p>{escape(fa_d if fa else en_d)}</p>"
+        f'<div class="sa-row"><b>{escape(title)}</b><div><p>{escape(text)}</p>'
         f"<code>{escape(_setting(kind))}</code></div></div>"
-        for en_t, fa_t, en_d, fa_d, kind in CONTEXT
+        for title, text, kind in CONTEXT
     ]
     st.html(f'<div class="sa-panel">{"".join(rows)}</div>')

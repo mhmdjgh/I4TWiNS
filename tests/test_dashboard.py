@@ -48,14 +48,16 @@ def test_chat_answers_and_shows_the_pipeline(scripted_agent: None) -> None:
     assert "sa-steps" in html and "Calculator" in html
 
 
-def test_persian_interface_switches_to_rtl(scripted_agent: None) -> None:
-    app = AppTest.from_file(APP, default_timeout=30)
-    app.session_state["ui_lang"] = "fa"
-    app.run()
-    assert not app.exception
-    html = " ".join(str(getattr(block, "value", "")) for block in app.get("html"))
-    assert "direction: rtl" in html
-    assert "یک پیام، اسکیل‌های درست." in html
+@pytest.mark.parametrize(("language", "direction"), [("fa", "rtl"), ("en", "ltr")])
+def test_answer_direction_follows_answer_language(language: str, direction: str) -> None:
+    from chat_page import answer_direction
+
+    from skill_agent.agent import AgentResponse
+    from skill_agent.routing import RoutingDecision
+
+    decision = RoutingDecision(response_language=language)
+    response = AgentResponse(prompt="p", answer="a", language="en", decision=decision)
+    assert answer_direction(response) == direction
 
 
 @pytest.mark.parametrize(
@@ -67,7 +69,7 @@ def test_pages_render(scripted_agent: None, page: str, expected: str) -> None:
 
         import theme
 
-        theme.apply("en")
+        theme.apply()
         importlib.import_module(module).render()
 
     app = AppTest.from_function(script, args=(page,), default_timeout=30).run()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from html import escape
 
-from strings import language, t
+from strings import t
 
 from skill_agent.agent import AgentResponse
 
@@ -13,28 +13,23 @@ from skill_agent.agent import AgentResponse
 @dataclass(frozen=True)
 class Look:
     color: str
-    en: str
-    fa: str
-
-    @property
-    def label(self) -> str:
-        return self.fa if language() == "fa" else self.en
+    label: str
 
 
 LOOKS: dict[str, Look] = {
-    "summarizer": Look("#8b5cf6", "Summarizer", "خلاصه‌ساز"),
-    "translator": Look("#0ea5e9", "Translator", "مترجم"),
-    "calculator": Look("#f59e0b", "Calculator", "ماشین‌حساب"),
-    "general_chat": Look("#10b981", "Chat", "گفت‌وگو"),
-    "clarify": Look("#a8a29e", "Clarification", "درخواست توضیح"),
-    "preprocess": Look("#a8a29e", "Preprocess", "پیش‌پردازش"),
-    "router": Look("#4f46e5", "Router", "مسیریاب"),
-    "compose": Look("#57534e", "Compose", "ترکیب"),
+    "summarizer": Look("#8b5cf6", "Summarizer"),
+    "translator": Look("#0ea5e9", "Translator"),
+    "calculator": Look("#f59e0b", "Calculator"),
+    "general_chat": Look("#10b981", "Chat"),
+    "clarify": Look("#a8a29e", "Clarification"),
+    "preprocess": Look("#a8a29e", "Preprocess"),
+    "router": Look("#4f46e5", "Router"),
+    "compose": Look("#57534e", "Compose"),
 }
 
 
 def look(name: str) -> Look:
-    return LOOKS.get(name, Look("#4f46e5", name, name))
+    return LOOKS.get(name, Look("#4f46e5", name))
 
 
 def icon(name: str) -> str:
