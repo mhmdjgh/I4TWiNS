@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from skill_agent.context.tokens import excerpt
-from skill_agent.prompts import load_prompt
+from skill_agent.prompts import load_prompt, render
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask
 from skill_agent.skills.registry import register_skill
+
+_LANGUAGE_NAMES = {"fa": "Persian", "en": "English", "fr": "French", "de": "German", "ar": "Arabic"}
 
 
 @register_skill
@@ -33,10 +35,17 @@ class GeneralChat(Skill):
         titles={"en": "Reply", "fa": "پاسخ"},
     )
 
+    # Open-ended questions are where a small model guesses facts; a little reasoning fixed a
+    # wrong attribution in evaluation. The structured skills run without it.
+    reasoning = "low"
+
     def run(self, task: SkillTask) -> SkillOutput:
-        system = load_prompt("general_chat")
+        language = _LANGUAGE_NAMES.get(task.language, task.language or "the user's language")
+        system = render(load_prompt("general_chat"), language=language)
         room = self.budget.input_room(system, task.max_output_tokens)
         message = excerpt(task.prompt, room)
-        reply = self.llm.complete(system, message, max_tokens=task.max_output_tokens)
+        reply = self.llm.complete(
+            system, message, max_tokens=task.max_output_tokens, reasoning=self.reasoning
+        )
         notes = ["message excerpted to fit the context"] if message is not task.prompt else []
         return SkillOutput(text=reply.text, usage=reply.usage, notes=notes)
