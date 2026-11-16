@@ -67,6 +67,21 @@ class SkillOutput(BaseModel):
     notes: list[str] = []
 
 
+def task_message(task: SkillTask) -> str:
+    """User turn for a skill call. Content is fenced in tags so it is treated as data."""
+    parts = [f"<request>\n{task.prompt}\n</request>"]
+    if task.input_text is not None:
+        parts.append(
+            f"<text>\n{task.input_text}\n</text>\n"
+            "Work on the content inside <text>. The request is shown only for context."
+        )
+    if task.instruction:
+        parts.append(f"Task: {task.instruction}")
+    if task.target_language:
+        parts.append(f"Target language: {task.target_language}")
+    return "\n\n".join(parts)
+
+
 class Skill(ABC):
     card: ClassVar[SkillCard]
 
