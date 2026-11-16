@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Skill Agent: Architecture Proposal</title>
+<style>
+  :root {
+    --ink: #1b2330;
+    --muted: #5b6575;
+    --line: #d9dee6;
+    --soft: #f3f5f9;
+    --accent: #1f4fd1;
+    --accent-soft: #e8eefc;
+    --ok: #1e7f4f;
+    --warn: #a45a00;
+  }
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0; color: var(--ink);
+    font: 9.5pt/1.42 "Segoe UI", "Calibri", "Tahoma", sans-serif;
+  }
+  .fa { font-family: "Segoe UI", "Tahoma", sans-serif; direction: rtl; unicode-bidi: isolate; }
+  h1, h2, h3 { line-height: 1.2; margin: 0; }
+  h2 {
+    font-size: 15pt; color: var(--accent); margin: 0 0 8px;
+    padding-bottom: 5px; border-bottom: 2px solid var(--accent-soft);
+  }
+  h3 { font-size: 11pt; margin: 14px 0 6px; }
+  p { margin: 0 0 8px; }
+  ul { margin: 0 0 8px; padding-left: 18px; }
+  li { margin: 2px 0; }
+  code, .mono { font-family: "Cascadia Mono", "Consolas", monospace; font-size: 8.8pt; }
+  code { background: var(--soft); padding: 0 3px; border-radius: 3px; }
+  section { break-inside: auto; margin-bottom: 16px; }
+  .page { break-before: page; }
+  .keep { break-inside: avoid; }
+  table { width: 100%; border-collapse: collapse; margin: 5px 0 8px; font-size: 8.6pt; }
+  th, td { text-align: left; vertical-align: top; padding: 3.5px 6px; border-bottom: 1px solid var(--line); }
+  th { background: var(--soft); font-weight: 600; }
+  .callout {
+    background: var(--accent-soft); border-left: 4px solid var(--accent);
+    padding: 8px 12px; border-radius: 4px; margin: 8px 0 10px;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+  .card h4 { margin: 0 0 4px; font-size: 10pt; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 8px 0 12px; }
+  .kpi { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .kpi b { display: block; font-size: 17pt; color: var(--accent); }
+  .kpi span { color: var(--muted); font-size: 8.5pt; }
+  figure { margin: 6px 0 12px; }
+  figcaption { color: var(--muted); font-size: 8.5pt; margin-top: 4px; }
+  pre {
+    background: var(--soft); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; margin: 6px 0 10px; white-space: pre-wrap; font-size: 8.5pt; line-height: 1.4;
+  }
+  .ok { color: var(--ok); font-weight: 600; }
+  .warn { color: var(--warn); font-weight: 600; }
+
+  /* cover */
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .cover .top { margin-top: 30mm; }
+  .cover .eyebrow { color: var(--accent); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 9pt; }
+  .cover h1 { font-size: 30pt; margin: 8px 0 10px; }
+  .cover .sub { font-size: 13pt; color: var(--muted); max-width: 150mm; }
+  .cover .facts { border-top: 1px solid var(--line); padding-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; font-size: 9pt; }
+  .cover .facts b { display: block; color: var(--muted); font-weight: 600; font-size: 8pt; text-transform: uppercase; letter-spacing: .05em; }
+  .toc { columns: 2; font-size: 9.5pt; margin-top: 18mm; }
+  .toc div { margin: 3px 0; }
+
+  svg text { font-family: "Segoe UI", "Tahoma", sans-serif; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="top">
+    <div class="eyebrow">Technical task · AI Engineer · I4Twins</div>
+    <h1>Skill Agent</h1>
+    <div class="sub">Architecture proposal for a multi-skill LLM agent that routes free-form English
+      and Persian prompts to summarization, translation, calculation and chat, and keeps every model
+      call inside its context window as the skill catalogue grows.</div>
+    <div class="toc">
+      <div>1. Summary</div>
+      <div>2. Requirements and constraints</div>
+      <div>3. Architecture overview</div>
+      <div>4. Execution model</div>
+      <div>5. Routing</div>
+      <div>6. Context-window strategy</div>
+      <div>7. Skills and prompt engineering</div>
+      <div>8. The calculator tool</div>
+      <div>9. Persian language support</div>
+      <div>10. Model and provider</div>
+      <div>11. Evaluation</div>
+      <div>12. Engineering practice</div>
+      <div>13. Limitations and roadmap</div>
+    </div>
+  </div>
+  <div class="facts">
+    <div><b>Stack</b>Python 3.12 · LangGraph · Pydantic v2 · Typer · Streamlit</div>
+    <div><b>Model</b>Nemotron 3 Nano 30B-A3B (free tier, OpenRouter)</div>
+    <div><b>Repository</b>github.com/mhmdjgh/I4TWiNS</div>
+  </div>
+</div>
+
+<!-- ============ 1. SUMMARY ============ -->
+<section class="page">
+  <h2>1. Summary</h2>
+  <p>The agent receives one free-form prompt, decides which of four skills it needs (at most two),
+    runs them as a LangGraph graph and returns a single answer in the user's language. The router's
+    decision is a Pydantic-validated JSON object, and the calculator always computes with a real
+    tool. Fallbacks and clarifications are deterministic code paths, not prompt suggestions.</p>
+
+  <div class="kpis">
+    <div class="kpi"><b>87%</b><span>skill detection, strict (13/15)</span></div>
+    <div class="kpi"><b>93%</b><span>on routed cases (13/14)</span></div>
+    <div class="kpi"><b>3/3</b><span>sequential vs parallel mode correct</span></div>
+    <div class="kpi"><b>166</b><span>offline tests · CI on every PR</span></div>
+  </div>
+
+  <h3>What makes the design hold up as it grows</h3>
+  <div class="grid2">
+    <div class="card"><h4>Skills are plugins</h4>A registry is the single source of truth. The
+      router prompt, the router's output validation and the graph nodes are generated from it, so a
+      new skill is one module and the graph does not change.</div>
+    <div class="card"><h4>Context is budgeted, not hoped for</h4>The router sees compact skill cards,
+      shortlisted to top-k for large catalogues. Parallel skills share an output budget, chains pass
+      only the previous output, and oversized texts go through map-reduce or chunking.</div>
+    <div class="card"><h4>Code around the model</h4>Fallback policies, composing results,
+      clarification language and fact checks on translations are deterministic, so behaviour does
+      not depend on a small model following every instruction.</div>
+    <div class="card"><h4>Measured, then fixed</h4>Every prompt or configuration change came from
+      a real run: reasoning-token truncation, a wrong weekday in a translation, a dropped named
+      entity in a summary. Each is documented with before/after evidence.</div>
+  </div>
+
+  <h2 style="margin-top:16px">2. Requirements and constraints</h2>
+  <table>
+    <tr><th style="width:38%">Requirement (from the brief)</th><th>How it is met</th></tr>
+    <tr><td>Four skills: summarizer, translator, calculator, general chat</td><td>Four registered skill classes, one graph node each</td></tr>
+    <tr><td>Routing node with structured, validated output</td><td><code>RoutingDecision</code> (Pydantic), validated against the live registry; one self-repair round</td></tr>
+    <tr><td>Calculator must use a real computational tool</td><td>Safe AST evaluator exposed as LangChain tool <code>calculate</code>; the LLM only extracts expressions</td></tr>
+    <tr><td>Up to 2 simultaneous skills, combination explained</td><td>Router chooses <i>parallel</i> (independent) or <i>sequential</i> (chained) execution</td></tr>
+    <tr><td>Defined fallback for no-match and ambiguity</td><td>General chat for no-match; clarifying question when a skill is wanted but cannot run, or confidence is low</td></tr>
+    <tr><td>Persian input and output</td><td>Normalization, bilingual routing examples, localized system strings, Persian orthography rules, fact checks</td></tr>
+    <tr><td>Free-tier provider, ≤ 35B parameters</td><td>OpenRouter free tier; Nemotron 3 Nano (30B total, ~3B active); Gemma 4 31B fallback</td></tr>
+    <tr><td>LangGraph; CLI is enough; no web API</td><td>LangGraph <code>StateGraph</code>; Typer CLI; optional Streamlit dashboard calls the agent in-process</td></tr>
+    <tr><td>Out of scope: memory, persistence, more skills</td><td>Not implemented; each request is independent</td></tr>
+  </table>
+</section>
+
+<!-- ============ 3. ARCHITECTURE ============ -->
+<section class="page">
+  <h2>3. Architecture overview</h2>
+  <figure class="keep">
+    <svg viewBox="0 0 720 360" width="88%" style="display:block;margin:0 auto" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#5b6575"/>
+        </marker>
+        <style>
+          .box { fill: #ffffff; stroke: #9aa6b8; stroke-width: 1.2; }
+          .core { fill: #e8eefc; stroke: #1f4fd1; stroke-width: 1.4; }
+          .skill { fill: #f3f5f9; stroke: #9aa6b8; }
+          .tool { fill: #fff6e6; stroke: #a45a00; }
+          .t { font-size: 12px; fill: #1b2330; font-weight: 600; }
+          .s { font-size: 9.5px; fill: #5b6575; }
+          .lbl { font-size: 9.5px; fill: #1f4fd1; }
+          .e { stroke: #5b6575; stroke-width: 1.3; fill: none; marker-end: url(#arr); }
+          .d { stroke-dasharray: 4 3; }
+        </style>
+      </defs>
+
+      <rect class="box" x="10" y="150" width="90" height="44" rx="22"/>
+      <text class="t" x="55" y="176" text-anchor="middle">prompt</text>
+
+      <rect class="box" x="125" y="140" width="120" height="64" rx="8"/>
+      <text class="t" x="185" y="166" text-anchor="middle">preprocess</text>
+      <text class="s" x="185" y="182" text-anchor="middle">normalize Persian</text>
+      <text class="s" x="185" y="195" text-anchor="middle">detect language</text>
+
+      <rect class="core" x="270" y="128" width="140" height="88" rx="8"/>
+      <text class="t" x="340" y="152" text-anchor="middle">router</text>
+      <text class="s" x="340" y="168" text-anchor="middle">shortlisted skill cards</text>
+      <text class="s" x="340" y="181" text-anchor="middle">JSON → Pydantic</text>
+      <text class="s" x="340" y="194" text-anchor="middle">+ fallback policies</text>
+      <text class="s" x="340" y="207" text-anchor="middle">1 LLM call</text>
+
+      <rect class="box" x="455" y="20" width="110" height="40" rx="8"/>
+      <text class="t" x="510" y="45" text-anchor="middle">clarify</text>
+
+      <rect class="skill" x="455" y="100" width="110" height="44" rx="8"/>
+      <text class="t" x="510" y="120" text-anchor="middle">skill A</text>
+      <text class="s" x="510" y="134" text-anchor="middle">SkillTask via Send</text>
+
+      <rect class="skill" x="455" y="200" width="110" height="44" rx="8"/>
+      <text class="t" x="510" y="220" text-anchor="middle">skill B</text>
+      <text class="s" x="510" y="234" text-anchor="middle">SkillTask via Send</text>
+
+      <rect class="tool" x="455" y="290" width="110" height="50" rx="8"/>
+      <text class="t" x="510" y="311" text-anchor="middle">calculate</text>
+      <text class="s" x="510" y="326" text-anchor="middle">safe AST tool</text>
+
+      <rect class="box" x="600" y="140" width="100" height="64" rx="8"/>
+      <text class="t" x="650" y="166" text-anchor="middle">compose</text>
+      <text class="s" x="650" y="182" text-anchor="middle">deterministic,</text>
+      <text class="s" x="650" y="195" text-anchor="middle">no LLM call</text>
+
+      <path class="e" d="M100,172 L123,172"/>
+      <path class="e" d="M245,172 L268,172"/>
+      <path class="e" d="M410,150 C430,120 430,45 453,42"/>
+      <text class="lbl" x="384" y="92">clarify</text>
+      <path class="e" d="M410,160 L453,124"/>
+      <text class="lbl" x="414" y="128">Send</text>
+      <path class="e d" d="M410,190 L453,220"/>
+      <text class="lbl" x="352" y="242">Send (parallel)</text>
+      <path class="e" d="M510,144 L510,198"/>
+      <text class="lbl" x="516" y="176">output → input</text>
+      <text class="lbl" x="516" y="188">(sequential)</text>
+      <path class="e d" d="M480,144 C440,200 440,280 470,288"/>
+      <path class="e" d="M565,122 L598,160"/>
+      <path class="e" d="M565,222 L598,186"/>
+      <path class="e" d="M565,42 C640,42 660,80 660,138"/>
+    </svg>
+    <figcaption>Figure 1. The agent graph. Skill nodes are generated from the registry; dashed
+      edges are the parallel fan-out and the calculator's tool call.</figcaption>
+  </figure>
+
+  <h3>Layers</h3>
+  <table>
+    <tr><th style="width:24%">Layer</th><th>Modules</th><th style="width:40%">Responsibility</th></tr>
+    <tr><td>Interfaces</td><td><code>cli.py</code>, <code>dashboard/app.py</code></td><td>Thin; both call <code>Agent</code> in-process</td></tr>
+    <tr><td>Orchestration</td><td><code>agent.py</code>, <code>graph.py</code>, <code>nodes/</code>, <code>state.py</code></td><td>Graph assembly, scheduling, composing results</td></tr>
+    <tr><td>Decision</td><td><code>routing.py</code>, <code>nodes/router.py</code></td><td>Structured routing decision and policies</td></tr>
+    <tr><td>Capabilities</td><td><code>skills/</code>, <code>tools/</code>, <code>prompts/</code></td><td>Skill plugins, the calculator tool, prompt files</td></tr>
+    <tr><td>Cross-cutting</td><td><code>context/</code>, <code>text/</code>, <code>llm.py</code>, <code>config.py</code></td><td>Budgets, chunking, shortlisting, Persian text, LLM client, settings</td></tr>
+  </table>
+
+  <h3>Key design decisions</h3>
+  <table>
+    <tr><th style="width:33%">Decision</th><th>Rationale</th></tr>
+    <tr><td>One node per skill, generated from a registry</td><td>Matches the "routing node + skill nodes" shape, keeps the graph inspectable, and makes skills plugins.</td></tr>
+    <tr><td>Router sees skill <i>cards</i>, never skill prompts</td><td>About 3 lines per skill instead of a full prompt; full prompts load only inside their node.</td></tr>
+    <tr><td>JSON + Pydantic instead of native tool calling for structure</td><td>Free models differ in function-calling support; validation errors are fed back for one self-repair.</td></tr>
+    <tr><td>Validation context instead of a fixed <code>Literal</code></td><td>Skill names and the per-request limit are checked against the live registry; the schema never changes.</td></tr>
+    <tr><td><code>Send</code> with a typed <code>SkillTask</code></td><td>Each skill gets only its own input. Parallel branches are isolated and results merge with a reducer.</td></tr>
+    <tr><td>Compose and clarify without an LLM</td><td>No extra latency or cost, and correct outputs are never rewritten.</td></tr>
+    <tr><td>Isolated failures</td><td>A failing skill becomes an error section; the other branch still answers; outages give a localized message.</td></tr>
+  </table>
+</section>
+
+<!-- ============ 4. EXECUTION ============ -->
+<section class="page">
+  <h2>4. Execution model</h2>
+  <p>The router's decision carries a <code>mode</code>. It is the only component that can tell
+    whether two tasks depend on each other, so it makes that call.</p>
+  <table>
+    <tr><th style="width:14%">Mode</th><th style="width:32%">When</th><th>How it runs</th><th style="width:22%">Answer</th></tr>
+    <tr><td><b>single</b></td><td>One skill</td><td>One <code>Send</code></td><td>The skill's output</td></tr>
+    <tr><td><b>parallel</b></td><td>Independent tasks: <i>"translate 'good luck' into Persian, and what is 15% of 3,200?"</i></td><td>One <code>Send</code> per skill in the same superstep, isolated inputs, list reducer</td><td>Localized titled sections</td></tr>
+    <tr><td><b>sequential</b></td><td>The second task works on the first one's output: <i>"summarize this, then translate the summary"</i></td><td>Only the first node starts; <code>after_skill</code> sends <b>only its output</b> to the next node; a failure stops the chain</td><td>The final output; intermediates in the trace</td></tr>
+  </table>
+  <div class="callout">Always chaining would slow independent tasks and feed unrelated text into the
+    second skill. Always parallelizing would translate the full text instead of the summary. Both
+    shapes are in the evaluation set; the router chose the right mode in all three cases.</div>
+
+  <h2 style="margin-top:14px">5. Routing</h2>
+  <div class="grid2">
+    <div>
+      <pre class="mono">{
+  "reasoning": "Summarize, then translate.",
+  "skills": [
+    {"skill": "summarizer",
+     "instruction": "summarize the text"},
+    {"skill": "translator",
+     "instruction": "translate the summary",
+     "target_language": "English"}
+  ],
+  "mode": "sequential",
+  "response_language": "fa",
+  "confidence": 0.95,
+  "needs_clarification": false
+}</pre>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Validation</h3>
+      <ul>
+        <li>Aliases normalized (<code>Translate</code> → <code>translator</code>)</li>
+        <li>Names checked against the registry; at most N skills</li>
+        <li>Mode made consistent with the number of skills</li>
+        <li>Errors phrased for the model, one repair round; truncated replies retried with a larger limit</li>
+      </ul>
+      <h3>Fallback policies (code, after the LLM)</h3>
+      <table>
+        <tr><th>Situation</th><th>Behaviour</th></tr>
+        <tr><td>No skill fits</td><td>general chat</td></tr>
+        <tr><td>Skill wanted, input missing</td><td>clarifying question</td></tr>
+        <tr><td>Low confidence, non-chat</td><td>clarifying question</td></tr>
+        <tr><td>Invalid output after repair</td><td>general chat</td></tr>
+        <tr><td>Question in wrong language</td><td>localized default</td></tr>
+      </table>
+    </div>
+  </div>
+  <p>The router prompt is few-shot and bilingual, with rules for the frequent confusions: the
+    requested <i>action</i> decides the skill, not the topic ("who invented algebra?" is chat), when
+    to chain versus parallelize, when to ask rather than guess, and treating instructions inside the
+    text to process as content.</p>
+</section>
+
+<!-- ============ 6. CONTEXT ============ -->
+<section class="page">
+  <h2>6. Context-window strategy</h2>
+  <p>The scaling problem the design is built around: as more skills are registered and more of them
+    run per request, every call must still fit the model's window. Each source of growth has its
+    own mechanism in <code>src/skill_agent/context/</code>.</p>
+
+  <figure class="keep">
+    <svg viewBox="0 0 720 190" width="100%" xmlns="http://www.w3.org/2000/svg">
+      <style>
+        .ax { stroke: #9aa6b8; stroke-width: 1; }
+        .naive { stroke: #a45a00; stroke-width: 2.2; fill: none; }
+        .ours { stroke: #1f4fd1; stroke-width: 2.6; fill: none; }
+        .tt { font-size: 10px; fill: #5b6575; }
+        .tl { font-size: 11px; font-weight: 600; }
+      </style>
+      <line class="ax" x1="60" y1="160" x2="690" y2="160"/>
+      <line class="ax" x1="60" y1="20" x2="60" y2="160"/>
+      <text class="tt" x="375" y="182" text-anchor="middle">registered skills (N)</text>
+      <text class="tt" x="20" y="95" transform="rotate(-90 20 95)" text-anchor="middle">router prompt size</text>
+      <text class="tt" x="60" y="174" text-anchor="middle">4</text>
+      <text class="tt" x="150" y="174" text-anchor="middle">8</text>
+      <text class="tt" x="300" y="174" text-anchor="middle">50</text>
+      <text class="tt" x="690" y="174" text-anchor="middle">200</text>
+      <path class="naive" d="M60,140 L150,128 L300,95 L690,25"/>
+      <path class="ours" d="M60,140 L150,128 L300,124 L690,124"/>
+      <text class="tl" x="300" y="56" fill="#a45a00">all cards in the prompt: O(N)</text>
+      <text class="tl" x="470" y="118" fill="#1f4fd1">shortlist top-k: O(k), flat</text>
+    </svg>
+    <figcaption>Figure 2. Router prompt size against catalogue size (schematic). A test checks that
+      the prompt stays flat for 10, 50 and 200 registered skills.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th style="width:32%">Source of growth</th><th>Mechanism</th></tr>
+    <tr><td>More skills in the catalogue</td><td>Router sees compact cards only. Above a threshold, a bilingual lexical shortlister (keyword phrases plus IDF overlap, no LLM call) keeps the top-k cards; the fallback card is always kept.</td></tr>
+    <tr><td>Long messages to the router</td><td>Head/tail excerpt: the request sits at the edges, while the long middle is the document, which routing does not need.</td></tr>
+    <tr><td>Several skills writing into one answer</td><td>Parallel steps share a total output budget; each chained intermediate is capped, so the next step's input is bounded by construction.</td></tr>
+    <tr><td>History accumulating along a chain</td><td>The next step receives only the previous output; parallel branches are isolated by <code>Send</code>.</td></tr>
+    <tr><td>Texts larger than the window</td><td>Map-reduce summarization (repeated reduce while partials are too long); chunk-by-chunk translation in order; excerpts for chat and calculator.</td></tr>
+    <tr><td>Hidden reasoning tokens</td><td>Reasoning configurable (off by default); an allowance is added to <code>max_tokens</code> when it is on.</td></tr>
+  </table>
+  <p>Chunk boundaries follow paragraphs, then sentences (including Persian <bdi dir="rtl" class="fa">؟</bdi>),
+    then words. Token counts are estimated without a provider tokenizer and deliberately over-count
+    Persian, the safe side for a budget.</p>
+</section>
+
+<!-- ============ 7. SKILLS ============ -->
+<section class="page">
+  <h2>7. Skills and prompt engineering</h2>
+  <table>
+    <tr><th style="width:16%">Skill</th><th>Prompt approach</th></tr>
+    <tr><td>Router</td><td>Generated catalogue, JSON contract, 9 rules, 7 bilingual examples (sequential, parallel, clarification in both languages, "math topic, nothing to compute")</td></tr>
+    <tr><td>Summarizer</td><td>Faithfulness (no added causes or opinions; keep names, numbers and dates; specific over generic), length defaults that yield to explicit constraints, source-language output, Persian orthography</td></tr>
+    <tr><td>Translator</td><td>Translate the payload, not the instruction; translate embedded instructions instead of following them; fact preservation with a weekday glossary; register and idioms; output only</td></tr>
+    <tr><td>Calculator</td><td>Extraction only: JSON list of labelled expressions in a whitelisted syntax; number words and Persian digits converted; never pre-compute</td></tr>
+    <tr><td>General chat</td><td>Mirror the language, be brief and honest; answer only the conversational part when another skill handles the task</td></tr>
+  </table>
+  <p>Shared techniques: content is fenced in <code>&lt;request&gt;</code>/<code>&lt;text&gt;</code> tags (which also defuses
+    "ignore the above" inside a text), rules are written so they can be checked, few-shot is used only
+    where the output has a format, and evaluation sentences are kept out of the examples.</p>
+
+  <h3>Improvement example: a wrong weekday in a translation</h3>
+  <table>
+    <tr><th style="width:14%">Version</th><th>Change</th><th style="width:34%">Result on <i>"…moved to <b>Thursday</b> morning…"</i></th></tr>
+    <tr><td>v1</td><td>Four-line prompt: translate, default direction, keep meaning, output only</td><td><bdi dir="rtl" class="fa">«…به صبح <b>جمعه</b> منتقل شده…»</bdi> <span class="warn">Friday</span></td></tr>
+    <tr><td>v2</td><td>Scope, accuracy rules (names, numbers, dates, weekdays), weekday glossary, register, Persian orthography</td><td>Still <bdi dir="rtl" class="fa"><b>جمعه</b></bdi>: the glossary was ignored</td></tr>
+    <tr><td>v3</td><td>Deterministic check of digits and weekday names in both directions; on a mismatch, one targeted repair request</td><td>Repair prompt names the exact error; covered by unit tests (live re-check pending: daily quota)</td></tr>
+  </table>
+  <div class="callout">With a model that has about 3B active parameters, instructions narrow the error
+    rate, but facts that can be checked mechanically should be checked in code. The summarizer had
+    a similar issue: v1 turned <i>"the Zayandeh River drying up"</i> into <i>"recent droughts"</i> and
+    added an unstated causal link. v2's faithfulness rules restored the named entity.</div>
+
+  <h2 style="margin-top:14px">8. The calculator tool</h2>
+  <div class="grid2">
+    <div>
+      <ul>
+        <li>Parsed with <code>ast</code> and evaluated over a node whitelist; no <code>eval</code>, names, attributes or arbitrary calls</li>
+        <li>Exact <code>Fraction</code> arithmetic (<code>0.1 + 0.2 = 0.3</code>), float only for irrational functions</li>
+        <li>Limits on length, nodes, exponent, factorial and result size</li>
+        <li>Accepts <bdi dir="rtl" class="fa">۲۵٪</bdi>, ×, ÷, ^, <code>1,250,000</code>, <code>2(3+4)</code></li>
+      </ul>
+    </div>
+    <div>
+      <p><b>Extract-then-execute.</b> The LLM converts the request into expressions; the skill calls
+        the <code>calculate</code> tool for every one. With optional native tool calling, a model can skip
+        the tool and answer from memory. Here the tool call is unconditional, so every number in an
+        answer comes from the tool.</p>
+      <p>Tests include injection payloads: <code>__import__</code>, dunder traversal, lambdas, attribute
+        access, keyword arguments, comparisons and conditionals.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9-11 ============ -->
+<section class="page">
+  <h2>9. Persian language support</h2>
+  <ul>
+    <li><b>Input:</b> Arabic <bdi dir="rtl" class="fa">ي</bdi> and <bdi dir="rtl" class="fa">ك</bdi> → Persian <bdi dir="rtl" class="fa">ی</bdi> and <bdi dir="rtl" class="fa">ک</bdi>, tatweel removed, ZWNJ cleaned; digits and line breaks preserved for translation.</li>
+    <li><b>Routing:</b> Persian and colloquial examples, such as <bdi dir="rtl" class="fa">چند میشه؟</bdi> ("how much is it?") and <bdi dir="rtl" class="fa">اینو برام خلاصه کن</bdi> ("summarize this for me"); Persian keywords in the shortlister.</li>
+    <li><b>Output:</b> the response language follows the user's own words; system strings localized; prompts require half-spaces, Persian punctuation and the letters <bdi dir="rtl" class="fa">ی</bdi> and <bdi dir="rtl" class="fa">ک</bdi>; a clarification in the wrong script is replaced.</li>
+    <li><b>Numbers and facts:</b> the calculator accepts Persian digits, the decimal mark <bdi dir="rtl" class="fa">٫</bdi>, the thousands separator <bdi dir="rtl" class="fa">٬</bdi> and the percent sign <bdi dir="rtl" class="fa">٪</bdi>. Weekdays are checked in both directions; Thursday may be written <bdi dir="rtl" class="fa">پنج‌شنبه</bdi>, or <bdi dir="rtl" class="fa">پنج شنبه</bdi>, or <bdi dir="rtl" class="fa">پنجشنبه</bdi>.</li>
+    <li><b>Display:</b> the dashboard sets each paragraph's direction from its first strong character, so mixed answers stay readable.</li>
+  </ul>
+
+  <h2 style="margin-top:14px">10. Model and provider</h2>
+  <table>
+    <tr><th></th><th>Model</th><th>Parameters</th><th>Price</th></tr>
+    <tr><td>Primary</td><td><code>nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free</code></td><td>30B total, ~3B active (MoE)</td><td>$0, free tier</td></tr>
+    <tr><td>Fallback</td><td><code>google/gemma-4-31b-it:free</code></td><td>30.7B dense</td><td>$0, free tier</td></tr>
+  </table>
+  <p>OpenRouter free tier, no credits purchased. Gemma 4 was the first choice but its free endpoint
+    returned upstream 429s during development, so it is the fallback. The client works with any
+    OpenAI-compatible endpoint and handles provider quirks (JSON mode, no system role, reasoning
+    switch).</p>
+
+  <h2 style="margin-top:14px">11. Evaluation</h2>
+  <p>15 labelled prompts (7 English, 8 Persian): 7 clear, 4 multi-skill (two sequential, one
+    parallel, one borderline), 2 ambiguous, 2 no-skill. Metric: exact match of the selected skill
+    set, with order checked for sequential cases.</p>
+  <table>
+    <tr><th>Run</th><th>Result</th><th>Finding → change</th></tr>
+    <tr><td>1</td><td>13/15</td><td>Both failures were truncated JSON: about 400 of 500 output tokens went to hidden reasoning. → Reasoning made configurable and off by default (same decision, 1.7 s vs 9.8 s), allowance and truncation retry.</td></tr>
+    <tr><td>checks</td><td>–</td><td>English clarification for a Persian request → prompt rule and code guard. Summarizer and translator errors on real outputs → prompt v2 and translator verification.</td></tr>
+    <tr><td>2</td><td><span class="ok">13/15 strict · 13/14 routed</span></td><td>Clear 7/7, multi 4/4 (mode 3/3), ambiguous 1/2, no-skill 1/2. One real miss (summary requested without text → summarizer now asks for it); one case not routed because of the free tier's 50 requests/day limit.</td></tr>
+  </table>
+  <table>
+    <tr><th>Label</th><th>Precision</th><th>Recall</th><th>Support</th></tr>
+    <tr><td>calculator</td><td>1.00</td><td>1.00</td><td>4</td></tr>
+    <tr><td>translator</td><td>1.00</td><td>1.00</td><td>5</td></tr>
+    <tr><td>summarizer</td><td>0.75</td><td>1.00</td><td>3</td></tr>
+    <tr><td>general_chat</td><td>1.00</td><td>0.60</td><td>5</td></tr>
+    <tr><td>clarify</td><td>1.00</td><td>0.50</td><td>2</td></tr>
+  </table>
+</section>
+
+<!-- ============ 12-13 ============ -->
+<section class="page">
+  <h2>12. Engineering practice</h2>
+  <div class="grid2">
+    <div class="card"><h4>Quality gates</h4>ruff (lint and format), mypy in strict mode, and 166
+      offline tests driven by a scripted chat model. They cover the evaluator, routing policies, every
+      graph path, context mechanisms, translation checks, the CLI and the dashboard (Streamlit
+      AppTest). GitHub Actions runs all of them on every push and pull request.</div>
+    <div class="card"><h4>Git workflow</h4>A branch per change (<code>feat/</code>, <code>fix/</code>,
+      <code>test/</code>, <code>ci/</code>, <code>docs/</code>, <code>chore/</code>) and a pull request
+      per branch with a description, merged with merge commits. Conventional Commits; bodies explain
+      the reason, including the evidence behind each fix.</div>
+    <div class="card"><h4>Interfaces</h4>CLI: <code>ask</code>, <code>chat</code>, <code>route</code>,
+      <code>eval</code>, <code>skills</code>, <code>config</code>, <code>graph</code>. Streamlit
+      dashboard: playground with routing, trace and tool calls; architecture view; evaluation view.</div>
+    <div class="card"><h4>Extending</h4>A new skill is one class with a <code>SkillCard</code> and a
+      prompt file. The router prompt, validation, shortlister, graph node and dashboard pick it up
+      automatically.</div>
+  </div>
+
+  <h2 style="margin-top:16px">13. Limitations and roadmap</h2>
+  <table>
+    <tr><th style="width:42%">Today</th><th>For production</th></tr>
+    <tr><td>Free tier: 50 requests/day, upstream rate limits</td><td>Paid or self-hosted inference, retries with backoff, circuit breaker</td></tr>
+    <tr><td>15-case routing evaluation; output quality judged by reading</td><td>Hundreds of labelled prompts per language, LLM-as-judge plus human review, CI regression gate</td></tr>
+    <tr><td>Estimated token counts; lexical shortlister</td><td>The model's tokenizer; multilingual embedding retrieval over skill cards</td></tr>
+    <tr><td>Heuristic split of instruction and text in long prompts</td><td>Router-returned spans, or the text as a separate input</td></tr>
+    <tr><td>Synchronous calls; sequential map-reduce</td><td>Async graph, concurrent chunks within rate limits, streaming</td></tr>
+    <tr><td>Translation checks cover numbers and weekdays</td><td>Entity, date and unit alignment; domain glossaries</td></tr>
+    <tr><td>Numeric calculator only</td><td>SymPy-backed tool for algebra, with the same safety envelope</td></tr>
+    <tr><td>No memory, auth, persistence; in-response trace only</td><td>Sessions, authentication, audit logs; OpenTelemetry/LangSmith tracing and cost metrics</td></tr>
+  </table>
+
+  <h3>Assumptions made where the brief was open</h3>
+  <ul>
+    <li>Translation without a stated target: Persian → English, anything else → Persian.</li>
+    <li>Sequential requests return the final output; intermediates are visible in the trace.</li>
+    <li>Clarification only when a skill is clearly wanted but cannot run, or confidence is low;
+      vague but conversational messages go to chat.</li>
+    <li>The response language is that of the user's own words, not of a quoted text.</li>
+    <li>"Parameters" means total parameters (30B for the MoE primary, ~3B active).</li>
+  </ul>
+  <p style="color:var(--muted); font-size:9pt; margin-top:12px">AI usage: an AI coding assistant
+    was used during development. Its instruction document (<code>CLAUDE.md</code>) and a short
+    disclosure (<code>AI_USAGE.md</code>) are in the repository.</p>
+</section>
+
+</body>
+</html>
