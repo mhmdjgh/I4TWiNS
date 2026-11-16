@@ -7,6 +7,7 @@ provider quirks (no system role, JSON mode), token accounting, and validated str
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
@@ -66,6 +67,26 @@ def _message_text(message: BaseMessage) -> str:
     return "".join(parts).strip()
 
 
+ReasoningSwitch = Callable[[str], dict[str, Any] | None]
+
+
+def reasoning_switch(param: str) -> ReasoningSwitch:
+    """Request fields that set a reasoning level ("off", "low", ...), per provider dialect.
+
+    OpenRouter takes a `reasoning` object, OpenAI-style gateways take `reasoning_effort`, and
+    some reject both ("none": send nothing and leave the model at its default).
+    """
+
+    def body(level: str) -> dict[str, Any] | None:
+        if param == "openrouter":
+            return {"reasoning": {"enabled": False} if level == "off" else {"effort": level}}
+        if param == "openai":
+            return {"reasoning_effort": "none" if level == "off" else level}
+        return None
+
+    return body
+
+
 def _is_truncation(exc: Exception) -> bool:
     # openai.LengthFinishReasonError, raised when a JSON-mode reply hits max_tokens. Matched by
     # name so this module does not depend on a specific provider SDK.
@@ -86,6 +107,8 @@ class LLMClient:
         json_mode: bool = False,
         max_repairs: int = 1,
         reasoning_tokens: int = 0,
+        reasoning_switch: ReasoningSwitch | None = None,
+        reasoning_allowance: int = 1_024,
     ) -> None:
         self._model = model
         self._system_role = system_role
@@ -94,15 +117,26 @@ class LLMClient:
         # Reasoning models spend hidden tokens before answering, and those count against
         # max_tokens. Callers size max_tokens for the visible answer; this pads it.
         self._reasoning_tokens = reasoning_tokens
+        self._reasoning_switch = reasoning_switch
+        self._reasoning_allowance = reasoning_allowance
 
     def _messages(self, system: str, user: str) -> list[BaseMessage]:
         if self._system_role:
             return [SystemMessage(system), HumanMessage(user)]
         return [HumanMessage(f"{system}\n\n---\n\n{user}")]
 
-    def _invoke(self, messages: list[BaseMessage], **kwargs: Any) -> AIMessage | BaseMessage:
+    def _invoke(
+        self, messages: list[BaseMessage], reasoning: str | None = None, **kwargs: Any
+    ) -> AIMessage | BaseMessage:
+        padding = self._reasoning_tokens
+        if reasoning is not None and self._reasoning_switch is not None:
+            body = self._reasoning_switch(reasoning)
+            if body is not None:
+                kwargs["extra_body"] = body
+            switched_off = reasoning == "off" and body is not None
+            padding = 0 if switched_off else self._reasoning_allowance
         if kwargs.get("max_tokens"):
-            kwargs["max_tokens"] += self._reasoning_tokens
+            kwargs["max_tokens"] += padding
         return self._model.invoke(messages, **{k: v for k, v in kwargs.items() if v is not None})
 
     def complete(
@@ -112,11 +146,24 @@ class LLMClient:
         *,
         max_tokens: int | None = None,
         temperature: float | None = None,
+        reasoning: str | None = None,
     ) -> Completion:
-        reply = self._invoke(
-            self._messages(system, user), max_tokens=max_tokens, temperature=temperature
-        )
-        return Completion(_message_text(reply), _usage_of(reply))
+        """Plain completion. `reasoning` overrides the default reasoning level for this call."""
+        messages = self._messages(system, user)
+        options: dict[str, Any] = {
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "reasoning": reasoning,
+        }
+        reply = self._invoke(messages, **options)
+        usage = _usage_of(reply)
+        text = _message_text(reply)
+        if not text and max_tokens and reply.response_metadata.get("finish_reason") == "length":
+            # A reasoning model can spend the whole allowance thinking and return nothing.
+            reply = self._invoke(messages, **(options | {"max_tokens": max_tokens * 2}))
+            usage += _usage_of(reply)
+            text = _message_text(reply)
+        return Completion(text, usage)
 
     def structured(
         self,
@@ -134,7 +181,9 @@ class LLMClient:
         token limit is retried with twice the limit instead.
         """
         messages = self._messages(system, user)
-        extra = {"response_format": {"type": "json_object"}} if self._json_mode else {}
+        extra: dict[str, Any] = (
+            {"response_format": {"type": "json_object"}} if self._json_mode else {}
+        )
         usage = Usage()
         error: Exception | None = None
 
@@ -173,12 +222,9 @@ def build_llm(settings: Settings) -> LLMClient:
             "No API key configured. Set LLM_API_KEY (or OPENROUTER_API_KEY) in .env."
         )
 
-    # OpenRouter's unified reasoning switch; providers that do not support it ignore it.
-    reasoning = (
-        {"enabled": False}
-        if settings.llm_reasoning == "off"
-        else {"effort": settings.llm_reasoning}
-    )
+    switch = reasoning_switch(settings.llm_reasoning_param)
+    level = settings.llm_reasoning
+    extra_body = switch(level)
 
     def chat_model(name: str) -> BaseChatModel:
         return ChatOpenAI(
@@ -188,7 +234,7 @@ def build_llm(settings: Settings) -> LLMClient:
             temperature=settings.llm_temperature,
             timeout=settings.llm_timeout_s,
             max_retries=settings.llm_max_retries,
-            extra_body={"reasoning": reasoning},
+            extra_body=extra_body,
             default_headers={
                 "HTTP-Referer": "https://github.com/mhmdjgh/I4TWiNS",
                 "X-Title": "skill-agent",
@@ -199,9 +245,13 @@ def build_llm(settings: Settings) -> LLMClient:
     if settings.llm_fallback_model:
         model = model.with_fallbacks([chat_model(settings.llm_fallback_model)])
 
+    # Without a way to switch reasoning off, budget for it as if it were on.
+    reasoning_off = level == "off" and settings.llm_reasoning_param != "none"
     return LLMClient(
         model,
         system_role=settings.llm_system_role,
         json_mode=settings.llm_json_mode,
-        reasoning_tokens=0 if settings.llm_reasoning == "off" else settings.reasoning_allowance,
+        reasoning_tokens=0 if reasoning_off else settings.reasoning_allowance,
+        reasoning_switch=switch,
+        reasoning_allowance=settings.reasoning_allowance,
     )

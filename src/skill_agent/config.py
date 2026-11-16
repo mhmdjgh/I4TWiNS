@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     llm_api_key: SecretStr | None = Field(
         default=None, validation_alias=AliasChoices("LLM_API_KEY", "OPENROUTER_API_KEY")
     )
-    llm_model: str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    llm_model: str = "nvidia/nemotron-3.5-lightning:free"
     llm_fallback_model: str | None = "google/gemma-4-31b-it:free"
     llm_temperature: float = 0.2
     llm_timeout_s: float = 90.0
@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Hidden "thinking" for reasoning models. Off by default: routing measured ~6x faster with
     # the same decisions, and the free tier is rate limited per request, not per token.
     llm_reasoning: Literal["off", "low", "medium", "high"] = "off"
+    # How the switch is sent: OpenRouter's `reasoning` object, OpenAI-style `reasoning_effort`,
+    # or not at all ("none") for gateways that reject both.
+    llm_reasoning_param: Literal["openrouter", "openai", "none"] = "openrouter"
     reasoning_allowance: int = Field(default=1_024, ge=0)
 
     # Routing
