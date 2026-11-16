@@ -176,8 +176,11 @@ def run_eval(
 
     report = evaluate(agent, cases, full=full, delay_s=delay, on_result=show)
     output.mkdir(parents=True, exist_ok=True)
-    (output / "report.md").write_text(report.to_markdown(), encoding="utf-8")
-    (output / "results.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    for name, content in (
+        ("report.md", report.to_markdown()),
+        ("results.json", report.model_dump_json(indent=2)),
+    ):
+        (output / name).write_text(content, encoding="utf-8", newline="\n")
     console.print(f"\n[bold]accuracy: {report.accuracy:.0%}[/bold] -> {output / 'report.md'}")
 
 
