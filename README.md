@@ -98,7 +98,8 @@ uv run skill-agent skills | config | graph                        # registry, se
 uv run --extra dashboard streamlit run dashboard/app.py
 ```
 
-Three pages, with the interface in English or Persian (right-to-left):
+A light, minimal, responsive interface (English) with three pages. Prompts and answers can be
+English or Persian; Persian answers are laid out right-to-left.
 
 - **Assistant**: a chat-style view with example prompts. Every answer shows the selected skills,
   mode, confidence, latency and tokens, plus a *Behind the scenes* panel. The panel has the

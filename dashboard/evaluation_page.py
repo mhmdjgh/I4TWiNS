@@ -7,21 +7,20 @@ from html import escape
 import streamlit as st
 from components import heading, icon, meter, skill, stat, subheading
 from services import DATASET, LOCAL_RUN, RESULTS, get_agent
-from strings import language, t
+from strings import t
 
 from skill_agent.evaluation import CaseResult, EvalReport, evaluate, load_cases
 
 CATEGORY_LABELS = {
-    "clear": ("Clear", "واضح"),
-    "multi": ("Multi-skill", "چند اسکیلی"),
-    "ambiguous": ("Ambiguous", "مبهم"),
-    "no_skill": ("No skill", "بی‌ربط"),
+    "clear": "Clear",
+    "multi": "Multi-skill",
+    "ambiguous": "Ambiguous",
+    "no_skill": "No skill",
 }
 
 
 def _category(name: str) -> str:
-    en, fa = CATEGORY_LABELS.get(name, (name, name))
-    return fa if language() == "fa" else en
+    return CATEGORY_LABELS.get(name, name)
 
 
 def _labels(labels: list[str], mode: str) -> str:
