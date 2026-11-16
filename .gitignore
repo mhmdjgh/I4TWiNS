@@ -27,3 +27,6 @@ evals/runs/
 
 # Task brief (internal document, not for the public repo)
 AIEngineerTask.pdf
+
+# Local editor/assistant settings
+.claude/
