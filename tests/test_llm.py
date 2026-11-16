@@ -56,6 +56,39 @@ def test_structured_gives_up_after_repairs() -> None:
         LLMClient(model).structured("sys", "user", Point)
 
 
+class LengthFinishReasonError(Exception):
+    """Stand-in with the same name as the OpenAI SDK exception."""
+
+
+def test_truncated_reply_is_retried_with_larger_budget() -> None:
+    attempts = iter([LengthFinishReasonError("cut off"), '{"x": 1, "y": 2}'])
+
+    def respond(_messages: object) -> str:
+        outcome = next(attempts)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    model = ScriptedChatModel(responder=respond)
+    point, _ = LLMClient(model).structured("sys", "user", Point, max_tokens=100)
+    assert point == Point(x=1, y=2)
+    assert [kw["max_tokens"] for kw in model.call_kwargs] == [100, 200]
+
+
+def test_other_provider_errors_propagate() -> None:
+    def respond(_messages: object) -> str:
+        raise ConnectionError("down")
+
+    with pytest.raises(ConnectionError):
+        LLMClient(ScriptedChatModel(responder=respond)).structured("sys", "user", Point)
+
+
+def test_reasoning_allowance_pads_max_tokens() -> None:
+    model = ScriptedChatModel(responder=replies("ok"))
+    LLMClient(model, reasoning_tokens=1000).complete("sys", "user", max_tokens=200)
+    assert model.call_kwargs[0]["max_tokens"] == 1200
+
+
 def test_json_mode_sends_response_format() -> None:
     model = ScriptedChatModel(responder=replies('{"x": 1, "y": 1}'))
     LLMClient(model, json_mode=True).structured("sys", "user", Point)
