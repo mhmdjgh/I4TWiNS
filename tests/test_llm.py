@@ -109,6 +109,52 @@ def test_system_role_used_by_default() -> None:
     assert isinstance(model.calls[0][0], SystemMessage)
 
 
+@pytest.mark.parametrize(
+    ("param", "level", "extra_body", "padding"),
+    [
+        ("openrouter", "off", {"reasoning": {"enabled": False}}, 0),
+        ("openrouter", "low", {"reasoning": {"effort": "low"}}, 1024),
+        ("openai", "off", {"reasoning_effort": "none"}, 0),
+        ("openai", "high", {"reasoning_effort": "high"}, 1024),
+        ("none", "off", None, 1024),
+    ],
+)
+def test_reasoning_switch_per_provider(
+    param: str, level: str, extra_body: object, padding: int
+) -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_fallback_model=None,
+        llm_reasoning=level,
+        llm_reasoning_param=param,
+    )
+    client = build_llm(settings)
+    assert client._model.extra_body == extra_body  # type: ignore[attr-defined]
+    assert client._reasoning_tokens == padding
+
+
+def test_empty_truncated_completion_is_retried() -> None:
+    from langchain_core.messages import AIMessage
+
+    from tests.fakes import ScriptedChatModel as Base
+
+    class Truncating(Base):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):  # type: ignore[no-untyped-def]
+            result = super()._generate(messages, stop, run_manager, **kwargs)
+            message = result.generations[0].message
+            if not message.content:
+                result.generations[0].message = AIMessage(
+                    "", response_metadata={"finish_reason": "length"}
+                )
+            return result
+
+    model = Truncating(responder=replies("", "جلسه به پنجشنبه منتقل شد."))
+    completion = LLMClient(model).complete("sys", "user", max_tokens=300)
+    assert completion.text == "جلسه به پنجشنبه منتقل شد."
+    assert [kw["max_tokens"] for kw in model.call_kwargs] == [300, 600]
+
+
 def test_build_llm_requires_key() -> None:
     with pytest.raises(ConfigurationError):
         build_llm(Settings(_env_file=None, llm_api_key=None))

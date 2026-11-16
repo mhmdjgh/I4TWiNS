@@ -91,6 +91,9 @@ def test_sequential_chain_feeds_previous_output() -> None:
 
     assert response.answer == "AI is changing the world."
     assert "<text>\nهوش مصنوعی جهان را تغییر می‌دهد.\n</text>" in seen["translator_input"]
+    # The second step sees the instruction, not the original text it should not translate.
+    assert "میلیون‌ها نفر" not in seen["translator_input"]
+    assert "این متن را خلاصه کن و به انگلیسی ترجمه کن" in seen["translator_input"]
     assert "Target language: English" in seen["translator_input"]
     assert [r.skill for r in response.results] == ["summarizer", "translator"]
 
@@ -106,6 +109,39 @@ def test_parallel_results_are_sectioned() -> None:
     assert response.answer.index("**Translation**") < response.answer.index("**Calculation**")
     assert "صبح بخیر" in response.answer and "**48**" in response.answer
     assert {e.node for e in response.trace} >= {"translator", "calculator", "compose"}
+
+
+def test_parallel_steps_get_their_own_span() -> None:
+    seen: dict[str, str] = {}
+
+    def translate(user: str) -> str:
+        seen["translator"] = user
+        return "در امتحانت موفق باشی"
+
+    plan = json.dumps({"problems": [{"label": "15% of 3200", "expression": "3200 * 15 / 100"}]})
+    decision = routing(
+        step("translator", target_language="Persian", input="good luck with your exam"),
+        step("calculator", input="what 15% of 3,200 is"),
+        mode="parallel",
+    )
+    agent = make_agent(scripted(decision, translator=translate, calculator=plan))
+    agent.run(
+        "Translate 'good luck with your exam' into Persian, and also tell me what 15% of 3,200 is."
+    )
+    assert "<text>\ngood luck with your exam\n</text>" in seen["translator"]
+
+
+def test_invented_span_is_ignored() -> None:
+    seen: dict[str, str] = {}
+
+    def translate(user: str) -> str:
+        seen["translator"] = user
+        return "سلام"
+
+    decision = routing(step("translator", input="text that is not in the prompt"))
+    agent = make_agent(scripted(decision, translator=translate))
+    agent.run("Translate into Persian: hello")
+    assert "<text>" not in seen["translator"]
 
 
 def test_parallel_failure_is_isolated() -> None:

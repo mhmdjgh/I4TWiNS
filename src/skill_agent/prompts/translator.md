@@ -17,6 +17,8 @@ Accuracy
 - Keep URLs, code, e-mail addresses and product names unchanged.
 
 Style
+- Write the whole translation in the target language. Do not leave source-language words in it,
+  except names, brands, code and URLs.
 - Write what a native speaker would write, in the source's register (formal stays formal, casual
   stays casual). Render idioms with an equivalent idiom, not word for word.
 - Keep the source's formatting: line breaks, lists and quotation marks.

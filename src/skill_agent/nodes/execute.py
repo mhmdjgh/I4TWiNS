@@ -19,6 +19,8 @@ from langgraph.types import Send
 
 from skill_agent.config import Settings
 from skill_agent.context.budget import ContextBudget
+from skill_agent.context.chunking import split_instruction
+from skill_agent.context.tokens import excerpt
 from skill_agent.skills.base import Skill, SkillTask
 from skill_agent.state import AgentState, SkillResult, TraceEvent
 
@@ -69,6 +71,13 @@ def make_skill_node(skill: Skill) -> Callable[[SkillInput], dict[str, Any]]:
     return run_skill
 
 
+def _verbatim_in(span: str, text: str) -> bool:
+    def squash(value: str) -> str:
+        return " ".join(value.split()).strip(" \"'«»“”")
+
+    return bool(squash(span)) and squash(span) in " ".join(text.split())
+
+
 class Scheduler:
     def __init__(self, settings: Settings) -> None:
         self.budget = ContextBudget.from_settings(settings)
@@ -79,11 +88,21 @@ class Scheduler:
         max_output = self.budget.output_per_step(
             len(decision.skills), chained=decision.mode == "sequential"
         )
+        prompt = state["text"]
+        if input_text is not None:
+            # A chained step gets the previous output plus the user's instruction only. With the
+            # original text also present, a small model may work on that instead.
+            instruction, _ = split_instruction(prompt)
+            prompt = instruction or excerpt(prompt, 200)
+        elif planned.input and _verbatim_in(planned.input, prompt):
+            # The router pinned the part of a multi-task prompt that belongs to this skill.
+            # It is used only if it really occurs in the message, so it cannot be invented.
+            input_text = planned.input
         return SkillTask(
             step=step,
             skill=planned.skill,
             instruction=planned.instruction,
-            prompt=state["text"],
+            prompt=prompt,
             language=decision.response_language,
             target_language=planned.target_language,
             input_text=input_text,

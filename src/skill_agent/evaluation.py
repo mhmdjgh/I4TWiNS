@@ -38,6 +38,7 @@ class CaseResult(BaseModel):
     mode_correct: bool | None
     latency_ms: float
     answer: str | None = None
+    notes: list[str] = Field(default_factory=list)
     error: str | None = None
 
 
@@ -91,14 +92,16 @@ class EvalReport(BaseModel):
             f"({sum(r.correct for r in self.results)}/{len(self.results)})",
         ]
         errored = [r for r in self.results if r.error]
-        if errored:
-            evaluated = [r for r in self.results if not r.error]
+        evaluated = [r for r in self.results if not r.error]
+        if errored and evaluated:
             hits = sum(r.correct for r in evaluated)
             lines.append(
                 f"- {len(errored)} case(s) failed with a provider error and were not routed; "
                 f"accuracy on the {len(evaluated)} routed cases: {hits}/{len(evaluated)} "
                 f"({hits / len(evaluated):.0%})"
             )
+        elif errored:
+            lines.append("- **Every case failed with a provider error; nothing was routed.**")
         mode_cases = [r for r in self.results if r.mode_correct is not None]
         if mode_cases:
             lines.append(
@@ -134,6 +137,12 @@ class EvalReport(BaseModel):
                 f"| {mark} | `{r.case.id}` | {expected} | {predicted} | {r.mode} | "
                 f"{r.confidence:.2f} | {r.latency_ms / 1000:.1f}s |"
             )
+        if self.full_run:
+            lines += ["", "## Answers", ""]
+            for r in self.results:
+                lines += [f"### `{r.case.id}`", "", f"> {r.case.prompt.strip()}", ""]
+                lines += [f"- _{note}_" for note in r.notes]
+                lines += ["", r.answer or f"_(no answer: {r.error})_", ""]
         return "\n".join(lines) + "\n"
 
 
@@ -172,9 +181,12 @@ def evaluate(
             time.sleep(delay_s)
         start = time.perf_counter()
         answer = error = None
+        notes: list[str] = []
         if full:
             response = agent.run(case.prompt)
             decision, answer, error = response.decision, response.answer, response.error
+            skills = set(decision.skill_names) if decision else set()
+            notes = [f"{e.node}: {e.detail}" for e in response.trace if e.node in skills]
         else:
             try:
                 decision = agent.route(case.prompt)
@@ -192,6 +204,7 @@ def evaluate(
             mode_correct=mode_correct(case, decision, predicted) if decision else None,
             latency_ms=latency,
             answer=answer,
+            notes=notes,
             error=error,
         )
         results.append(result)

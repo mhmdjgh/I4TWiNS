@@ -47,6 +47,20 @@ def _persian_weekdays(text: str) -> set[str]:
     return {english for english, pattern in _PERSIAN_WEEKDAY.items() if pattern.search(joined)}
 
 
+_VERBATIM = re.compile(r"`[^`]*`|https?://\S+|\S+@\S+\.\w+")
+_LOWERCASE_LATIN_WORD = re.compile(r"\b[a-z]{3,}\b")
+
+
+def _untranslated_english(persian_text: str) -> list[str]:
+    """Lower-case English words inside a Persian translation (e.g. «…postponed شده است»).
+
+    Capitalized words are left alone because names and brands are often kept in Latin script,
+    and code, URLs and e-mail addresses are skipped because they must stay unchanged.
+    """
+    prose = _VERBATIM.sub(" ", persian_text)
+    return sorted(set(_LOWERCASE_LATIN_WORD.findall(prose)))
+
+
 def translation_issues(source: str, translation: str, *, check_numbers: bool = True) -> list[str]:
     """Facts from the source that are missing or changed in the translation.
 
@@ -65,6 +79,9 @@ def translation_issues(source: str, translation: str, *, check_numbers: bool = T
             f'"{day.title()}" must be translated as «{WEEKDAYS[day]}»'
             for day in sorted(expected - present)
         ]
+        leftovers = _untranslated_english(translation)
+        if leftovers:
+            issues.append(f"English words left untranslated: {', '.join(leftovers)}")
     elif target == "en":
         expected, present = _persian_weekdays(source), _english_weekdays(translation)
         issues += [

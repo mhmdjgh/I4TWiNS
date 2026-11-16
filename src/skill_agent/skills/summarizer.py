@@ -10,6 +10,8 @@ from skill_agent.skills.registry import register_skill
 
 _MAX_REDUCE_ROUNDS = 3
 _MIN_WORDS = 8  # anything shorter is not worth summarizing; most likely the text is missing
+_CHECK_FROM_WORDS = 40  # below this a summary may legitimately be close to the source length
+_MAX_RATIO = 0.6  # a summary longer than this share of the source gets one shortening pass
 
 
 @register_skill
@@ -48,10 +50,28 @@ class Summarizer(Skill):
 
         system = load_prompt("summarizer")
         message = task_message(task)
-        if self.budget.fits(system, message, task.max_output_tokens):
-            reply = self.llm.complete(system, message, max_tokens=task.max_output_tokens)
+        if not self.budget.fits(system, message, task.max_output_tokens):
+            return self._map_reduce(system, task)
+
+        reply = self.llm.complete(system, message, max_tokens=task.max_output_tokens)
+        source_words, summary_words = len(text.split()), len(reply.text.split())
+        if source_words < _CHECK_FROM_WORDS or summary_words <= _MAX_RATIO * source_words:
             return SkillOutput(text=reply.text, usage=reply.usage)
-        return self._map_reduce(system, task)
+
+        # The model sometimes restates the text instead of condensing it; ask once, with numbers.
+        target = int(source_words * 0.4)
+        repair = (
+            f"{message}\n\nYour previous summary:\n<summary>\n{reply.text}\n</summary>\n"
+            f"It has {summary_words} words but the source has only {source_words}. Rewrite it "
+            f"in at most {target} words, keeping the main point and the key facts and any "
+            "format the user asked for. Return only the summary."
+        )
+        shorter = self.llm.complete(system, repair, max_tokens=task.max_output_tokens)
+        return SkillOutput(
+            text=shorter.text,
+            usage=reply.usage + shorter.usage,
+            notes=[f"shortened after check: {summary_words} -> {len(shorter.text.split())} words"],
+        )
 
     def _map_reduce(self, system: str, task: SkillTask) -> SkillOutput:
         """Summarize each chunk, then summarize the partial summaries.

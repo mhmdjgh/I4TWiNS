@@ -27,6 +27,8 @@ class SkillStep(BaseModel):
     skill: str
     instruction: str = Field(default="", max_length=400)
     target_language: str | None = Field(default=None, max_length=40)
+    # For prompts with several tasks: the exact part of the message this skill must work on.
+    input: str | None = None
 
     @field_validator("skill", mode="before")
     @classmethod
@@ -35,6 +37,13 @@ class SkillStep(BaseModel):
             return value
         name = value.strip().lower().replace("-", "_").replace(" ", "_")
         return _ALIASES.get(name, name)
+
+    @field_validator("input", mode="before")
+    @classmethod
+    def _blank_input_is_none(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip().lower() in {"", "null", "none"}:
+            return None
+        return value
 
     @field_validator("target_language", mode="before")
     @classmethod
