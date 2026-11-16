@@ -1,5 +1,5 @@
-.stMainBlockContainer, section[data-testid="stSidebar"] [data-testid="stSidebarContent"] { direction: rtl; }
-html, body, .stApp, .stMarkdown, button, input, textarea { font-family: "Vazirmatn", "Inter", system-ui, sans-serif !important; }
-.sa-link { transform: scaleX(-1); }
-.sa-user-bubble { border-radius: 16px 16px 4px 16px; }
-code, pre, .sa-case-id { direction: ltr; unicode-bidi: isolate; }
+.stMainBlockContainer { direction: rtl; }
+html, body, .stApp, .stMarkdown, button, input, textarea {
+  font-family: "Vazirmatn", "Inter", system-ui, sans-serif !important;
+}
+code, pre { direction: ltr; unicode-bidi: isolate; }

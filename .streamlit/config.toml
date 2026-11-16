@@ -1,14 +1,16 @@
 [theme]
-base = "dark"
-primaryColor = "#8b9bff"
-backgroundColor = "#0a0f1e"
-secondaryBackgroundColor = "#131b30"
-textColor = "#e7eaf3"
-borderColor = "#232d47"
-baseRadius = "0.75rem"
+base = "light"
+primaryColor = "#4f46e5"
+backgroundColor = "#fafaf9"
+secondaryBackgroundColor = "#f3f3f1"
+textColor = "#1c1917"
+borderColor = "#e7e5e4"
+baseRadius = "0.6rem"
+showSidebarBorder = false
 
 [client]
 toolbarMode = "minimal"
+showSidebarNavigation = false
 
 [browser]
 gatherUsageStats = false
