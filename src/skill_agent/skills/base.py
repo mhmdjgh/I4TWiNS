@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict
 
 from skill_agent.config import Settings
+from skill_agent.context.budget import ContextBudget
 from skill_agent.llm import LLMClient, Usage
 
 
@@ -88,6 +89,7 @@ class Skill(ABC):
     def __init__(self, llm: LLMClient, settings: Settings) -> None:
         self.llm = llm
         self.settings = settings
+        self.budget = ContextBudget.from_settings(settings)
 
     @property
     def name(self) -> str:

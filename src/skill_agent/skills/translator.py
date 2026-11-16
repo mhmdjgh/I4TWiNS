@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from skill_agent.context.chunking import chunk_text, split_instruction
+from skill_agent.llm import Usage
 from skill_agent.prompts import load_prompt
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, task_message
 from skill_agent.skills.registry import register_skill
@@ -34,7 +36,43 @@ class Translator(Skill):
     )
 
     def run(self, task: SkillTask) -> SkillOutput:
-        reply = self.llm.complete(
-            load_prompt("translator"), task_message(task), max_tokens=task.max_output_tokens
+        system = load_prompt("translator")
+        message = task_message(task)
+        if self.budget.fits(system, message, task.max_output_tokens):
+            reply = self.llm.complete(system, message, max_tokens=task.max_output_tokens)
+            return SkillOutput(text=reply.text, usage=reply.usage)
+        return self._chunked(system, task)
+
+    def _chunked(self, system: str, task: SkillTask) -> SkillOutput:
+        """Translate a long text chunk by chunk.
+
+        Unlike summarization the output is as long as the input, so each chunk gets the full
+        output allowance and the pieces are joined in order.
+        """
+        if task.input_text is not None:
+            request, text = task.prompt, task.input_text
+        else:
+            request, text = split_instruction(task.prompt)
+        chunks = chunk_text(text, self.settings.chunk_tokens)
+        usage = Usage()
+        pieces = []
+        for i, chunk in enumerate(chunks, 1):
+            part = task.model_copy(
+                update={
+                    "prompt": request or "Translate the text.",
+                    "input_text": chunk,
+                    "instruction": f"{task.instruction} (part {i} of {len(chunks)}; translate "
+                    "this part completely and output only its translation)".strip(),
+                }
+            )
+            # A translation is about as long as its source (longer for Persian): size by chunk.
+            reply = self.llm.complete(
+                system, task_message(part), max_tokens=self.settings.chunk_tokens * 2
+            )
+            usage += reply.usage
+            pieces.append(reply.text)
+        return SkillOutput(
+            text="\n\n".join(pieces),
+            usage=usage,
+            notes=[f"translated in {len(chunks)} chunks"],
         )
-        return SkillOutput(text=reply.text, usage=reply.usage)
