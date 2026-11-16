@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -12,6 +13,7 @@ from rich.table import Table
 
 from skill_agent.agent import Agent, AgentResponse
 from skill_agent.config import get_settings
+from skill_agent.evaluation import CaseResult, evaluate, load_cases
 from skill_agent.llm import ConfigurationError
 from skill_agent.routing import RoutingDecision
 from skill_agent.skills import registry
@@ -142,6 +144,41 @@ def config() -> None:
     for key, value in settings.model_dump().items():
         shown = "***" if "key" in key and value else value
         console.print(f"[cyan]{key}[/cyan] = {shown}")
+
+
+@app.command("eval")
+def run_eval(
+    dataset: Annotated[Path, typer.Option(help="YAML file with labelled prompts.")] = Path(
+        "evals/dataset.yaml"
+    ),
+    output: Annotated[Path, typer.Option(help="Directory for report.md / results.json.")] = Path(
+        "evals"
+    ),
+    full: Annotated[
+        bool, typer.Option("--full/--routing-only", help="Run the whole graph, not just routing.")
+    ] = False,
+    delay: Annotated[
+        float, typer.Option(help="Seconds between cases (free-tier rate limits).")
+    ] = 3.0,
+    only: Annotated[list[str] | None, typer.Option(help="Run only these case ids.")] = None,
+) -> None:
+    """Measure skill-detection accuracy on the evaluation set."""
+    cases = load_cases(dataset)
+    if only:
+        cases = [case for case in cases if case.id in only]
+    agent = _agent()
+
+    def show(result: CaseResult) -> None:
+        mark = "[green]ok[/green]  " if result.correct else "[red]MISS[/red]"
+        expected = ",".join(result.case.expected)
+        predicted = ",".join(result.predicted) or "-"
+        console.print(f"{mark} {result.case.id:<34} expected={expected:<24} got={predicted}")
+
+    report = evaluate(agent, cases, full=full, delay_s=delay, on_result=show)
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "report.md").write_text(report.to_markdown(), encoding="utf-8")
+    (output / "results.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
+    console.print(f"\n[bold]accuracy: {report.accuracy:.0%}[/bold] -> {output / 'report.md'}")
 
 
 @app.command()
