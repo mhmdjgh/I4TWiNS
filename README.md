@@ -98,10 +98,20 @@ uv run skill-agent skills | config | graph                        # registry, se
 uv run --extra dashboard streamlit run dashboard/app.py
 ```
 
-Three tabs: **Playground** (answer, routing decision, per-node trace, tool calls, intermediate
-results, raw JSON), **Architecture** (graph, skill cards, context settings) and **Evaluation**
-(results by case, category and skill, plus a re-run button). It calls the agent in-process; no web
-API was built, as the brief asked.
+Three pages, with the interface in English or Persian (right-to-left):
+
+- **Assistant**: a chat-style view with example prompts. Every answer shows the selected skills,
+  mode, confidence, latency and tokens, plus a *Behind the scenes* panel. The panel has the
+  execution pipeline (parallel skills drawn side by side, time and tokens per node), the routing
+  decision with each skill's instruction and span, tool calls, intermediate results of a chain,
+  and the raw JSON.
+- **How it works**: the request lifecycle, the graph, the skill cards the router sees, and the
+  context-protection mechanisms with their current settings.
+- **Evaluation**: accuracy, latency, per-category and per-skill results, every case with expected
+  vs. selected skills, and the answers of full runs. Re-running saves to `evals/runs/` and never
+  overwrites the committed results.
+
+It calls the agent in-process; no web API was built, as the brief asked.
 
 ### Docker
 
