@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+from time import perf_counter
+from typing import Any
+
+from skill_agent.config import Settings
+from skill_agent.i18n import t
+from skill_agent.llm import LLMClient, StructuredOutputError, Usage
+from skill_agent.prompts import load_prompt, render
+from skill_agent.routing import RoutingDecision, SkillStep
+from skill_agent.skills.registry import SkillRegistry
+from skill_agent.state import AgentState, TraceEvent
+
+
+class Router:
+    """Routing node: one LLM call that returns a validated `RoutingDecision`.
+
+    Deterministic policies are applied on top of the model's answer so that the fallback
+    behaviour does not depend on the model following every rule in the prompt.
+    """
+
+    def __init__(self, llm: LLMClient, registry: SkillRegistry, settings: Settings) -> None:
+        self.llm = llm
+        self.registry = registry
+        self.settings = settings
+
+    def build_prompt(self) -> str:
+        cards = self.registry.cards()
+        return render(
+            load_prompt("router"),
+            skills="\n".join(card.render() for card in cards),
+            skill_names=", ".join(card.name for card in cards),
+            max_skills=self.settings.max_skills_per_request,
+        )
+
+    def __call__(self, state: AgentState) -> dict[str, Any]:
+        start = perf_counter()
+        language = state.get("language", "en")
+        usage = Usage()
+        detail = ""
+        try:
+            decision, usage = self.llm.structured(
+                self.build_prompt(),
+                f"Message:\n{state['text']}",
+                RoutingDecision,
+                context={
+                    "skills": list(self.registry.names),
+                    "max_skills": self.settings.max_skills_per_request,
+                },
+                max_tokens=500,
+            )
+        except StructuredOutputError as exc:
+            decision = self.fallback_decision(language)
+            detail = f"router output invalid, falling back: {exc}"
+
+        decision = self.apply_policies(decision, language)
+        event = TraceEvent(
+            node="router",
+            elapsed_ms=(perf_counter() - start) * 1000,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            detail=detail or self.describe(decision),
+        )
+        return {"decision": decision, "trace": [event]}
+
+    def fallback_decision(self, language: str) -> RoutingDecision:
+        return RoutingDecision(
+            reasoning="Router output was unusable; using the fallback skill.",
+            skills=[SkillStep(skill=self.registry.fallback, instruction="reply to the user")],
+            response_language=language if language != "unknown" else "en",
+            confidence=0.0,
+        )
+
+    def apply_policies(self, decision: RoutingDecision, language: str) -> RoutingDecision:
+        if not decision.response_language:
+            fallback_language = language if language != "unknown" else "en"
+            decision = decision.model_copy(update={"response_language": fallback_language})
+        reply_language = decision.response_language
+
+        if decision.needs_clarification:
+            question = decision.clarification_question or t("clarify.generic", reply_language)
+            return decision.model_copy(update={"skills": [], "clarification_question": question})
+
+        if not decision.skills:
+            step = SkillStep(skill=self.registry.fallback, instruction="reply to the user")
+            return decision.model_copy(update={"skills": [step], "mode": "single"})
+
+        only_fallback = decision.skill_names == [self.registry.fallback]
+        if decision.confidence < self.settings.clarify_below_confidence and not only_fallback:
+            return decision.model_copy(
+                update={
+                    "skills": [],
+                    "mode": "single",
+                    "needs_clarification": True,
+                    "clarification_question": t("clarify.generic", reply_language),
+                }
+            )
+        return decision
+
+    @staticmethod
+    def describe(decision: RoutingDecision) -> str:
+        if decision.needs_clarification:
+            return "needs clarification"
+        skills = " -> " if decision.mode == "sequential" else " + "
+        return f"{skills.join(decision.skill_names)} ({decision.mode}, conf={decision.confidence})"
