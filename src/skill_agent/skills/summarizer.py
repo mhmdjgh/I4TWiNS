@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from skill_agent.context.chunking import chunk_text, split_instruction
 from skill_agent.context.tokens import estimate_tokens
+from skill_agent.i18n import t
 from skill_agent.llm import Usage
 from skill_agent.prompts import load_prompt
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, task_message
 from skill_agent.skills.registry import register_skill
 
 _MAX_REDUCE_ROUNDS = 3
+_MIN_WORDS = 8  # anything shorter is not worth summarizing; most likely the text is missing
 
 
 @register_skill
@@ -38,6 +40,12 @@ class Summarizer(Skill):
     )
 
     def run(self, task: SkillTask) -> SkillOutput:
+        text = task.input_text if task.input_text is not None else split_instruction(task.prompt)[1]
+        if len(text.split()) < _MIN_WORDS:
+            # "Summarize this" with nothing attached: ask for the text instead of letting the
+            # model summarize the instruction itself (a routing slip seen in evaluation).
+            return SkillOutput(text=t("clarify.need_text", task.language), notes=["no text given"])
+
         system = load_prompt("summarizer")
         message = task_message(task)
         if self.budget.fits(system, message, task.max_output_tokens):

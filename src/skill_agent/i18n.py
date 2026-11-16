@@ -9,6 +9,10 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "fa": "مطمئن نیستم دقیقاً چه کاری می‌خواهید. خلاصه کنم، ترجمه کنم، محاسبه کنم یا فقط "
         "گفت‌وگو کنیم؟ لطفاً کمی بیشتر توضیح دهید.",
     },
+    "clarify.need_text": {
+        "en": "Sure. Please send the text you would like me to summarize.",
+        "fa": "حتماً. لطفاً متنی را که می‌خواهید خلاصه کنم بفرستید.",
+    },
     "skill.failed": {
         "en": "This part could not be completed: {error}",
         "fa": "این بخش انجام نشد: {error}",

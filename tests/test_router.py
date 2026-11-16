@@ -110,6 +110,17 @@ class TestRouterNode:
         assert result.needs_clarification and result.skills == []
         assert "مطمئن نیستم" in (result.clarification_question or "")
 
+    def test_clarification_in_wrong_language_is_replaced(self) -> None:
+        body = decision(
+            skills=[],
+            needs_clarification=True,
+            response_language="fa",
+            clarification_question="Sure! Which text should I summarize?",
+        )
+        router, _ = make_router(body)
+        question = route(router, "اینو برام خلاصه کن", "fa").clarification_question or ""
+        assert question.startswith("مطمئن نیستم")
+
     def test_low_confidence_turns_into_clarification(self) -> None:
         router, _ = make_router(decision(skills=[step("calculator")], confidence=0.2))
         assert route(router, "do the thing").needs_clarification

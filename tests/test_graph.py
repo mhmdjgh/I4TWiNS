@@ -31,9 +31,9 @@ def scripted(router_reply: str, **skill_replies: str | Callable[[str], str]) -> 
     prompts = {
         "router of a multi-skill assistant": "router",
         "math-extraction step": "calculator",
-        "summarization assistant": "summarizer",
+        "You summarize texts": "summarizer",
         "professional translator": "translator",
-        "assistant for general conversation": "general_chat",
+        "conversational part of an assistant": "general_chat",
     }
 
     def respond(messages: list[BaseMessage]) -> str:
@@ -84,7 +84,10 @@ def test_sequential_chain_feeds_previous_output() -> None:
     agent = make_agent(
         scripted(decision, summarizer="هوش مصنوعی جهان را تغییر می‌دهد.", translator=translate)
     )
-    response = agent.run("این متن را خلاصه کن و به انگلیسی ترجمه کن: ...")
+    response = agent.run(
+        "این متن را خلاصه کن و به انگلیسی ترجمه کن: هوش مصنوعی در چند سال گذشته شیوه‌ی کار، "
+        "آموزش و ارتباط میلیون‌ها نفر را در سراسر جهان تغییر داده است."
+    )
 
     assert response.answer == "AI is changing the world."
     assert "<text>\nهوش مصنوعی جهان را تغییر می‌دهد.\n</text>" in seen["translator_input"]
@@ -122,7 +125,10 @@ def test_sequential_stops_after_failure() -> None:
 
     decision = routing(step("summarizer"), step("translator"), mode="sequential")
     agent = make_agent(scripted(decision, summarizer=broken, translator="unused"))
-    response = agent.run("summarize and translate: ...")
+    response = agent.run(
+        "summarize and translate: The council approved the new budget after a long debate "
+        "about housing, transport and the future of the old harbour district."
+    )
     assert [r.skill for r in response.results] == ["summarizer"]
     assert "boom" in response.answer
 
