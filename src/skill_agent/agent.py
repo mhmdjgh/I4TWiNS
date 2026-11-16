@@ -63,7 +63,8 @@ class Agent:
         try:
             state: dict[str, Any] = self.graph.invoke({"prompt": prompt})
         except Exception as exc:
-            log.exception("agent run failed")
+            # The full traceback is only useful when debugging; the response carries the error.
+            log.warning("agent run failed: %s", exc, exc_info=log.isEnabledFor(logging.DEBUG))
             language = detect_language(prompt)
             return AgentResponse(
                 prompt=prompt,

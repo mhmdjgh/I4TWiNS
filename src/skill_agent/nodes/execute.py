@@ -40,7 +40,9 @@ def make_skill_node(skill: Skill) -> Callable[[SkillInput], dict[str, Any]]:
             output = skill.run(task)
         except Exception as exc:
             # One failing skill must not take down the other branch or the whole request.
-            log.exception("skill %s failed", skill.name)
+            log.warning(
+                "skill %s failed: %s", skill.name, exc, exc_info=log.isEnabledFor(logging.DEBUG)
+            )
             result = SkillResult(step=task.step, skill=skill.name, error=str(exc) or repr(exc))
             usage_in = usage_out = 0
             detail = f"failed: {result.error}"
