@@ -48,6 +48,36 @@ def test_chat_answers_and_shows_the_pipeline(scripted_agent: None) -> None:
     assert "sa-steps" in html and "Calculator" in html
 
 
+def test_password_gate(scripted_agent: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    import access
+
+    settings = Settings(_env_file=None, dashboard_password="open-sesame")
+    monkeypatch.setattr(access, "get_settings", lambda: settings)
+
+    app = AppTest.from_file(APP, default_timeout=30).run()
+    assert not app.exception
+    assert len(app.chat_input) == 0  # nothing usable before signing in
+
+    # Form fields are submitted together with the button, so fill in and click in one run.
+    app.text_input[0].input("wrong")
+    app.button[0].click().run()
+    assert app.error and len(app.chat_input) == 0
+
+    app.text_input[0].input("open-sesame")
+    app.button[0].click().run()
+    assert not app.exception
+    assert len(app.chat_input) == 1
+
+
+def test_no_password_means_no_gate(scripted_agent: None) -> None:
+    import access
+
+    assert access.password_ok("same", "same")
+    assert not access.password_ok("same", "other")
+    app = AppTest.from_file(APP, default_timeout=30).run()
+    assert len(app.chat_input) == 1
+
+
 @pytest.mark.parametrize(("language", "direction"), [("fa", "rtl"), ("en", "ltr")])
 def test_answer_direction_follows_answer_language(language: str, direction: str) -> None:
     from chat_page import answer_direction

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     router_excerpt_tokens: int = Field(default=700, ge=100)
     chunk_tokens: int = Field(default=2_500, ge=200)
 
+    # Dashboard. Leave the password empty to open the dashboard without a sign-in screen.
+    dashboard_password: SecretStr | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

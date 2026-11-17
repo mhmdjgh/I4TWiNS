@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 STRINGS: dict[str, str] = {
+    "auth.prompt": "Enter the password to use this dashboard.",
+    "auth.label": "Password",
+    "auth.button": "Sign in",
+    "auth.wrong": "That password isn't right. Try again.",
     "nav.chat": "Assistant",
     "nav.architecture": "How it works",
     "nav.evaluation": "Evaluation",
