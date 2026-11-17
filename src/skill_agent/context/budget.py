@@ -6,6 +6,7 @@ from skill_agent.config import Settings
 from skill_agent.context.tokens import estimate_tokens
 
 _MESSAGE_OVERHEAD = 200  # role markers, chat template, safety margin
+_MIN_OUTPUT_PER_STEP = 256
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,7 @@ class ContextBudget:
         """
         if chained or steps <= 1:
             return self.max_output
-        return max(256, min(self.max_output, self.total_output // steps))
+        return max(_MIN_OUTPUT_PER_STEP, min(self.max_output, self.total_output // steps))
 
     def input_room(self, system_prompt: str, max_output: int) -> int:
         return self.window - estimate_tokens(system_prompt) - max_output - _MESSAGE_OVERHEAD

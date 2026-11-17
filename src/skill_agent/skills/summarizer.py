@@ -1,17 +1,26 @@
 from __future__ import annotations
 
-from skill_agent.context.chunking import chunk_text, split_instruction
+from skill_agent.context.chunking import chunk_text
 from skill_agent.context.tokens import estimate_tokens
 from skill_agent.i18n import t
 from skill_agent.llm import Usage
 from skill_agent.prompts import load_prompt
-from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, task_message
+from skill_agent.skills.base import (
+    Skill,
+    SkillCard,
+    SkillOutput,
+    SkillTask,
+    request_and_text,
+    task_message,
+)
 from skill_agent.skills.registry import register_skill
 
 _MAX_REDUCE_ROUNDS = 3
 _MIN_WORDS = 8  # anything shorter is not worth summarizing; most likely the text is missing
 _CHECK_FROM_WORDS = 40  # below this a summary may legitimately be close to the source length
 _MAX_RATIO = 0.6  # a summary longer than this share of the source gets one shortening pass
+_SHORTENED_RATIO = 0.4  # the length that pass asks for
+_MAX_REQUEST_CHARS = 500  # of the prompt, when no instruction could be split off
 
 
 @register_skill
@@ -42,7 +51,7 @@ class Summarizer(Skill):
     )
 
     def run(self, task: SkillTask) -> SkillOutput:
-        text = task.input_text if task.input_text is not None else split_instruction(task.prompt)[1]
+        _, text = request_and_text(task)
         if len(text.split()) < _MIN_WORDS:
             # "Summarize this" with nothing attached: ask for the text instead of letting the
             # model summarize the instruction itself (a routing slip seen in evaluation).
@@ -59,7 +68,7 @@ class Summarizer(Skill):
             return SkillOutput(text=reply.text, usage=reply.usage)
 
         # The model sometimes restates the text instead of condensing it; ask once, with numbers.
-        target = int(source_words * 0.4)
+        target = int(source_words * _SHORTENED_RATIO)
         repair = (
             f"{message}\n\nYour previous summary:\n<summary>\n{reply.text}\n</summary>\n"
             f"It has {summary_words} words but the source has only {source_words}. Rewrite it "
@@ -79,10 +88,7 @@ class Summarizer(Skill):
         Every call stays within the window no matter how long the input is; the reduce step is
         repeated (up to a few rounds) while the partial summaries are themselves too long.
         """
-        if task.input_text is not None:
-            request, text = task.prompt, task.input_text
-        else:
-            request, text = split_instruction(task.prompt)
+        request, text = request_and_text(task)
         chunk_budget = self.settings.chunk_tokens
         usage = Usage()
         total_chunks = 0
@@ -111,7 +117,7 @@ class Summarizer(Skill):
 
         final = task.model_copy(
             update={
-                "prompt": request or task.prompt[:500],
+                "prompt": request or task.prompt[:_MAX_REQUEST_CHARS],
                 "input_text": text,
                 "instruction": "The text consists of summaries of consecutive parts of one "
                 "document. Merge them into a single summary that fulfils the original request. "

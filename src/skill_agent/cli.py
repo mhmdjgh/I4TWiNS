@@ -13,7 +13,7 @@ from rich.table import Table
 
 from skill_agent.agent import Agent, AgentResponse
 from skill_agent.config import get_settings
-from skill_agent.evaluation import CaseResult, evaluate, load_cases
+from skill_agent.evaluation import EVAL_DELAY_S, CaseResult, evaluate, load_cases
 from skill_agent.llm import ConfigurationError
 from skill_agent.routing import RoutingDecision
 from skill_agent.skills import registry
@@ -139,11 +139,9 @@ def skills() -> None:
 
 @app.command()
 def config() -> None:
-    """Show the effective configuration (the API key is masked)."""
-    settings = get_settings()
-    for key, value in settings.model_dump().items():
-        shown = "***" if "key" in key and value else value
-        console.print(f"[cyan]{key}[/cyan] = {shown}")
+    """Show the effective configuration (secrets such as the API key are masked)."""
+    for key, value in get_settings().model_dump().items():
+        console.print(f"[cyan]{key}[/cyan] = {value}")
 
 
 @app.command("eval")
@@ -159,7 +157,7 @@ def run_eval(
     ] = False,
     delay: Annotated[
         float, typer.Option(help="Seconds between cases (free-tier rate limits).")
-    ] = 3.0,
+    ] = EVAL_DELAY_S,
     only: Annotated[list[str] | None, typer.Option(help="Run only these case ids.")] = None,
 ) -> None:
     """Measure skill-detection accuracy on the evaluation set."""

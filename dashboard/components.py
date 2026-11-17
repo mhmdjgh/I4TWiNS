@@ -9,6 +9,9 @@ from strings import t
 
 from skill_agent.agent import AgentResponse
 
+_MIN_TIMED_MS = 10  # faster steps show a dash: their time is noise
+_METER_WARN_BELOW = 0.9
+
 
 @dataclass(frozen=True)
 class Look:
@@ -52,7 +55,7 @@ def subheading(title: str, subtitle: str = "") -> str:
 
 
 def meta_line(response: AgentResponse) -> str:
-    """One quiet line under an answer: skills, mode, time."""
+    """Skills, mode and time of an answer, in one line."""
     decision = response.decision
     sep = '<span class="sep">·</span>'
     if decision is None or decision.needs_clarification:
@@ -83,7 +86,7 @@ def steps(response: AgentResponse) -> str:
             classes.append("parallel")
         if event.detail.startswith("failed"):
             classes.append("failed")
-        seconds = f"{event.elapsed_ms / 1000:.2f}s" if event.elapsed_ms >= 10 else "—"
+        seconds = f"{event.elapsed_ms / 1000:.2f}s" if event.elapsed_ms >= _MIN_TIMED_MS else "—"
         rows.append(
             f'<div class="{" ".join(classes)}" style="--c:{item.color}"><span class="dot"></span>'
             f"<div><b>{escape(item.label)}</b><small>{escape(detail)}</small></div>"
@@ -98,9 +101,9 @@ def stat(value: str, label: str) -> str:
 
 
 def meter(label: str, share: float, text: str) -> str:
-    warn = " warn" if share < 0.9 else ""
+    warn = " warn" if share < _METER_WARN_BELOW else ""
     return (
-        f'<div class="sa-meter"><span>{label}</span><div class="track">'
+        f'<div class="sa-meter"><span>{escape(label)}</span><div class="track">'
         f'<div class="fill{warn}" style="width:{share * 100:.0f}%"></div></div>'
         f"<span>{escape(text)}</span></div>"
     )

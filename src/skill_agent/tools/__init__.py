@@ -7,9 +7,7 @@ from skill_agent.tools.math_eval import CONSTANTS, FUNCTIONS, CalculationError, 
 def calculate(expression: str) -> str:
     """Evaluate an arithmetic expression exactly and return the result.
 
-    Supports + - * / // % ** and parentheses, the constants pi, e and tau, and these functions:
-    abs, round, floor, ceil, min, max, factorial, gcd, lcm, sqrt, cbrt, exp, ln, log, log10, log2,
-    sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, radians, degrees, hypot.
+    Supports + - * / // % ** and parentheses, `CONSTANTS` and `FUNCTIONS`.
     """
     return evaluate(expression).display
 

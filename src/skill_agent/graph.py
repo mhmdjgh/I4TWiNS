@@ -21,20 +21,19 @@ from skill_agent.nodes.execute import CLARIFY, COMPOSE, Scheduler, SkillInput, m
 from skill_agent.nodes.preprocess import preprocess
 from skill_agent.nodes.respond import Composer, clarify
 from skill_agent.nodes.router import Router
-from skill_agent.skills import registry as default_registry
-from skill_agent.skills.registry import SkillRegistry
 from skill_agent.state import AgentState
 
 
 def build_graph(
-    llm: LLMClient, settings: Settings, registry: SkillRegistry = default_registry
+    llm: LLMClient, settings: Settings, router: Router
 ) -> CompiledStateGraph[AgentState, None, AgentState, AgentState]:
+    registry = router.registry
     skills = registry.instantiate(llm, settings)
     scheduler = Scheduler(settings)
 
     graph = StateGraph(AgentState)
     graph.add_node("preprocess", preprocess)
-    graph.add_node("router", Router(llm, registry, settings))
+    graph.add_node("router", router)
     graph.add_node(CLARIFY, clarify)
     graph.add_node(COMPOSE, Composer(registry))
     for name, skill in skills.items():

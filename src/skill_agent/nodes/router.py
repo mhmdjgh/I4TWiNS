@@ -15,6 +15,12 @@ from skill_agent.skills.registry import SkillRegistry
 from skill_agent.state import AgentState, TraceEvent
 from skill_agent.text.persian import detect_language
 
+_MAX_DECISION_TOKENS = 500
+
+
+def _known_or_english(language: str) -> str:
+    return language if language != "unknown" else "en"
+
 
 class Router:
     """Routing node: one LLM call that returns a validated `RoutingDecision`.
@@ -63,7 +69,7 @@ class Router:
                     "skills": [card.name for card in cards],
                     "max_skills": self.settings.max_skills_per_request,
                 },
-                max_tokens=500,
+                max_tokens=_MAX_DECISION_TOKENS,
             )
         except StructuredOutputError as exc:
             decision = self.fallback_decision(language)
@@ -82,15 +88,19 @@ class Router:
     def fallback_decision(self, language: str) -> RoutingDecision:
         return RoutingDecision(
             reasoning="Router output was unusable; using the fallback skill.",
-            skills=[SkillStep(skill=self.registry.fallback, instruction="reply to the user")],
-            response_language=language if language != "unknown" else "en",
+            skills=[self._fallback_step()],
+            response_language=_known_or_english(language),
             confidence=0.0,
         )
 
+    def _fallback_step(self) -> SkillStep:
+        return SkillStep(skill=self.registry.fallback, instruction="reply to the user")
+
     def apply_policies(self, decision: RoutingDecision, language: str) -> RoutingDecision:
         if not decision.response_language:
-            fallback_language = language if language != "unknown" else "en"
-            decision = decision.model_copy(update={"response_language": fallback_language})
+            decision = decision.model_copy(
+                update={"response_language": _known_or_english(language)}
+            )
         reply_language = decision.response_language
 
         if decision.needs_clarification:
@@ -104,8 +114,7 @@ class Router:
             return decision.model_copy(update={"skills": [], "clarification_question": question})
 
         if not decision.skills:
-            step = SkillStep(skill=self.registry.fallback, instruction="reply to the user")
-            return decision.model_copy(update={"skills": [step], "mode": "single"})
+            return decision.model_copy(update={"skills": [self._fallback_step()], "mode": "single"})
 
         decision = self._split_summary_translation(decision)
 

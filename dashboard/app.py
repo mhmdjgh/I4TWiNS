@@ -2,8 +2,8 @@
 
 A second, thin interface next to the CLI: it calls the same `Agent` in-process (there is no web
 API layer) and makes the internals visible: routing decision, execution steps, tool calls and
-the evaluation results. Light, minimal and responsive. The interface is in English; prompts and
-answers can be English or Persian, and Persian answers are shown right-to-left.
+the evaluation results. The interface is in English; prompts and answers can be English or
+Persian, and Persian answers are shown right-to-left.
 
     uv run --extra dashboard streamlit run dashboard/app.py
 """
@@ -35,7 +35,7 @@ current = st.navigation(pages, position="hidden")
 
 def settings_menu() -> None:
     settings = get_settings()
-    agent, _ = get_agent()
+    agent = get_agent()
     status = t("side.connected") if agent is not None else t("side.no_key")
     st.markdown(
         f"**{t('side.status')}:** {status}  \n`{settings.llm_model}`  \n"

@@ -127,7 +127,7 @@ class LLMClient:
 
     def _invoke(
         self, messages: list[BaseMessage], reasoning: str | None = None, **kwargs: Any
-    ) -> AIMessage | BaseMessage:
+    ) -> BaseMessage:
         padding = self._reasoning_tokens
         if reasoning is not None and self._reasoning_switch is not None:
             body = self._reasoning_switch(reasoning)

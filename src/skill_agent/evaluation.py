@@ -13,10 +13,11 @@ import yaml
 from pydantic import BaseModel, Field
 
 from skill_agent.agent import Agent
-from skill_agent.routing import RoutingDecision
+from skill_agent.nodes.execute import CLARIFY
+from skill_agent.routing import Mode, RoutingDecision
 
-CLARIFY = "clarify"
 Category = Literal["clear", "multi", "ambiguous", "no_skill"]
+EVAL_DELAY_S = 3.0  # between cases, for free-tier rate limits
 
 
 class EvalCase(BaseModel):
@@ -26,13 +27,13 @@ class EvalCase(BaseModel):
     prompt: str
     expected: list[str]
     accept: list[list[str]] = Field(default_factory=list)
-    mode: str | None = None
+    mode: Mode | None = None
 
 
 class CaseResult(BaseModel):
     case: EvalCase
     predicted: list[str]
-    mode: str
+    mode: Mode | Literal["-"]
     confidence: float
     correct: bool
     mode_correct: bool | None
@@ -52,9 +53,9 @@ class EvalReport(BaseModel):
     def accuracy(self) -> float:
         return sum(r.correct for r in self.results) / len(self.results) if self.results else 0.0
 
-    def by_category(self) -> dict[str, tuple[int, int]]:
-        totals: Counter[str] = Counter()
-        hits: Counter[str] = Counter()
+    def by_category(self) -> dict[Category, tuple[int, int]]:
+        totals: Counter[Category] = Counter()
+        hits: Counter[Category] = Counter()
         for r in self.results:
             totals[r.case.category] += 1
             hits[r.case.category] += r.correct
@@ -128,7 +129,7 @@ class EvalReport(BaseModel):
             "|---|---|---|---|---|---|---|",
         ]
         for r in self.results:
-            mark = "✅" if r.correct else "❌"
+            mark = "ok" if r.correct else "miss"
             expected = " → ".join(r.case.expected)
             predicted = " → ".join(r.predicted) or "—"
             if r.error:

@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
+from skill_agent.text.languages import language_code
+
 _ALIASES = {
     "chat": "general_chat",
     "general": "general_chat",
@@ -21,6 +23,8 @@ _ALIASES = {
 }
 
 Mode = Literal["single", "parallel", "sequential"]
+
+_BLANKS = frozenset({"", "null", "none"})
 
 
 class SkillStep(BaseModel):
@@ -38,17 +42,11 @@ class SkillStep(BaseModel):
         name = value.strip().lower().replace("-", "_").replace(" ", "_")
         return _ALIASES.get(name, name)
 
-    @field_validator("input", mode="before")
+    @field_validator("input", "target_language", mode="before")
     @classmethod
-    def _blank_input_is_none(cls, value: object) -> object:
-        if isinstance(value, str) and value.strip().lower() in {"", "null", "none"}:
-            return None
-        return value
-
-    @field_validator("target_language", mode="before")
-    @classmethod
-    def _empty_is_none(cls, value: object) -> object:
-        if isinstance(value, str) and value.strip().lower() in {"", "null", "none", "auto"}:
+    def _blank_is_none(cls, value: object, info: ValidationInfo) -> object:
+        blanks = _BLANKS | {"auto"} if info.field_name == "target_language" else _BLANKS
+        if isinstance(value, str) and value.strip().lower() in blanks:
             return None
         return value
 
@@ -73,10 +71,8 @@ class RoutingDecision(BaseModel):
     @field_validator("response_language", mode="before")
     @classmethod
     def _language_code(cls, value: object) -> object:
-        names = {"persian": "fa", "farsi": "fa", "english": "en"}
         if isinstance(value, str):
-            value = value.strip().lower()
-            return names.get(value, value)
+            return language_code(value) or value.strip().lower()
         return value
 
     @model_validator(mode="after")

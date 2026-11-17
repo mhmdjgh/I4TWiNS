@@ -1,13 +1,22 @@
 from __future__ import annotations
 
-from skill_agent.context.chunking import chunk_text, split_instruction
+from skill_agent.context.chunking import chunk_text
 from skill_agent.llm import Usage
 from skill_agent.prompts import load_prompt
-from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, task_message
+from skill_agent.skills.base import (
+    Skill,
+    SkillCard,
+    SkillOutput,
+    SkillTask,
+    request_and_text,
+    task_message,
+)
 from skill_agent.skills.checks import target_code, translation_issues
 from skill_agent.skills.registry import register_skill
 
 _REPAIR_TEMPERATURES = (0.0, 0.7)
+# A translation is about as long as its source (longer for Persian): size by chunk.
+_OUTPUT_PER_CHUNK_TOKEN = 2
 
 
 def _repair_request(message: str, translation: str, issues: list[str]) -> str:
@@ -54,11 +63,8 @@ class Translator(Skill):
             return self._chunked(system, task)
 
         reply = self.llm.complete(system, message, max_tokens=task.max_output_tokens)
-        if task.input_text is not None:
-            source, delimited = task.input_text, True
-        else:
-            instruction, source = split_instruction(task.prompt)
-            delimited = bool(instruction)
+        request, source = request_and_text(task)
+        delimited = task.input_text is not None or bool(request)
         target = target_code(task.target_language, source)
 
         def check(text: str) -> list[str]:
@@ -92,10 +98,7 @@ class Translator(Skill):
         Unlike summarization the output is as long as the input, so each chunk gets the full
         output allowance and the pieces are joined in order.
         """
-        if task.input_text is not None:
-            request, text = task.prompt, task.input_text
-        else:
-            request, text = split_instruction(task.prompt)
+        request, text = request_and_text(task)
         chunks = chunk_text(text, self.settings.chunk_tokens)
         usage = Usage()
         pieces = []
@@ -108,9 +111,10 @@ class Translator(Skill):
                     "this part completely and output only its translation)".strip(),
                 }
             )
-            # A translation is about as long as its source (longer for Persian): size by chunk.
             reply = self.llm.complete(
-                system, task_message(part), max_tokens=self.settings.chunk_tokens * 2
+                system,
+                task_message(part),
+                max_tokens=self.settings.chunk_tokens * _OUTPUT_PER_CHUNK_TOKEN,
             )
             usage += reply.usage
             pieces.append(reply.text)

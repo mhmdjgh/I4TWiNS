@@ -5,6 +5,7 @@ import re
 from pydantic import BaseModel, Field
 
 from skill_agent.context.tokens import excerpt
+from skill_agent.i18n import t
 from skill_agent.prompts import load_prompt, render
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, ToolCall
 from skill_agent.skills.registry import register_skill
@@ -24,6 +25,7 @@ class MathPlan(BaseModel):
 
 _NUMBER = re.compile(r"[0-9۰-۹٠-٩]+(?:[.,٫٬][0-9۰-۹٠-٩]+)*")
 _OPERATOR = re.compile(r"[+*/^×÷=]|\d\s*-\s*\d")
+_MAX_PLAN_TOKENS = 600
 
 
 def is_word_problem(text: str) -> bool:
@@ -33,12 +35,6 @@ def is_word_problem(text: str) -> bool:
     more" became "- 20"). Written expressions and "X% of Y" don't need it and stay fast.
     """
     return len(_NUMBER.findall(text)) >= 3 and not _OPERATOR.search(text)
-
-
-_MESSAGES = {
-    "en": {"failed": "could not compute", "nothing": "I couldn't find a calculation to perform."},
-    "fa": {"failed": "محاسبه ممکن نشد", "nothing": "محاسبه‌ای در درخواست پیدا نکردم."},
-}
 
 
 @register_skill
@@ -87,16 +83,17 @@ class Calculator(Skill):
 
     def run(self, task: SkillTask) -> SkillOutput:
         system = render(load_prompt("calculator"), functions=", ".join(FUNCTIONS))
-        text = excerpt(task.input_text or task.prompt, self.budget.input_room(system, 600))
+        text = excerpt(
+            task.input_text or task.prompt, self.budget.input_room(system, _MAX_PLAN_TOKENS)
+        )
         user = f"{text}\n\n(Focus: {task.instruction})" if task.instruction else text
         # Decided on the user's words only: the router's instruction may add symbols ("120 - 35%").
         reasoning = "low" if is_word_problem(text) else None
         plan, usage = self.llm.structured(
-            system, user, MathPlan, max_tokens=600, reasoning=reasoning
+            system, user, MathPlan, max_tokens=_MAX_PLAN_TOKENS, reasoning=reasoning
         )
-        messages = _MESSAGES["fa" if task.language == "fa" else "en"]
         if not plan.problems:
-            text = messages["nothing"] + (f" {plan.note}" if plan.note else "")
+            text = t("calculator.nothing", task.language) + (f" {plan.note}" if plan.note else "")
             return SkillOutput(text=text, usage=usage)
 
         calls: list[ToolCall] = []
@@ -109,7 +106,7 @@ class Calculator(Skill):
                 calls.append(
                     ToolCall(name=calculate.name, arguments=args, output=str(exc), ok=False)
                 )
-                lines.append(f"- {problem.label}: {messages['failed']} ({exc})")
+                lines.append(f"- {problem.label}: {t('calculator.failed', task.language)} ({exc})")
                 continue
             calls.append(ToolCall(name=calculate.name, arguments=args, output=result))
             lines.append(f"- {problem.label}: `{problem.expression}` = **{result}**")

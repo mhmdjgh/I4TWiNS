@@ -4,8 +4,7 @@ from skill_agent.context.tokens import excerpt
 from skill_agent.prompts import load_prompt, render
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask
 from skill_agent.skills.registry import register_skill
-
-_LANGUAGE_NAMES = {"fa": "Persian", "en": "English", "fr": "French", "de": "German", "ar": "Arabic"}
+from skill_agent.text.languages import language_name
 
 
 @register_skill
@@ -40,7 +39,7 @@ class GeneralChat(Skill):
     reasoning = "low"
 
     def run(self, task: SkillTask) -> SkillOutput:
-        language = _LANGUAGE_NAMES.get(task.language, task.language or "the user's language")
+        language = language_name(task.language) or task.language or "the user's language"
         system = render(load_prompt("general_chat"), language=language)
         room = self.budget.input_room(system, task.max_output_tokens)
         message = excerpt(task.prompt, room)

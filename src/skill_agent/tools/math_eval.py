@@ -25,6 +25,7 @@ MAX_NODES = 150
 MAX_RESULT_DIGITS = 2_000
 MAX_EXPONENT = 10_000
 MAX_FACTORIAL = 1_000
+_LOG10_2 = math.log10(2)  # decimal digits per bit
 
 
 class CalculationError(ValueError):
@@ -116,7 +117,7 @@ def normalize_expression(text: str) -> str:
 def _digits(value: Number) -> int:
     if isinstance(value, Fraction):
         bits = max(value.numerator.bit_length(), value.denominator.bit_length())
-        return int(bits * 0.30103) + 1
+        return int(bits * _LOG10_2) + 1
     return 0
 
 
@@ -146,7 +147,7 @@ def _power(base: Number, exponent: Number) -> Number:
         if base == 0 and exp < 0:
             raise CalculationError("division by zero")
         bits = max(base.numerator.bit_length(), base.denominator.bit_length())
-        if bits * abs(exp) * 0.30103 > MAX_RESULT_DIGITS:
+        if bits * abs(exp) * _LOG10_2 > MAX_RESULT_DIGITS:
             raise CalculationError(f"result exceeds {MAX_RESULT_DIGITS} digits")
         return base**exp
     return math.pow(float(base), float(exponent))
@@ -203,11 +204,11 @@ class _Evaluator:
                 return _checked(_INTEGER_FUNCTIONS[func](*(_as_int(a, func) for a in args)))
             if func in _FLOAT_FUNCTIONS:
                 return _checked(_FLOAT_FUNCTIONS[func](*(float(a) for a in args)))
+        except CalculationError:
+            raise
         except TypeError as exc:
             raise CalculationError(f"wrong number of arguments for {func}()") from exc
         except (ValueError, OverflowError, ZeroDivisionError) as exc:
-            if isinstance(exc, CalculationError):
-                raise
             raise CalculationError(f"{func}() is undefined for these arguments") from exc
         raise CalculationError(f"unknown function {func!r}")
 
@@ -243,13 +244,13 @@ def evaluate(expression: str) -> Evaluation:
         raise CalculationError(f"invalid expression: {expr!r}") from exc
     try:
         value = _Evaluator().visit(tree)
+    except CalculationError:
+        raise
     except (ZeroDivisionError, OverflowError) as exc:
         raise CalculationError(
             "division by zero" if isinstance(exc, ZeroDivisionError) else "result is too large"
         ) from exc
     except ValueError as exc:
-        if isinstance(exc, CalculationError):
-            raise
         raise CalculationError("math domain error") from exc
     display, exact = format_number(value)
     return Evaluation(expression=expr, value=value, display=display, exact=exact)
