@@ -29,3 +29,26 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t skill-agent .
+
+      - name: Start it and check the health endpoint
+        run: |
+          docker run -d --name agent -p 8501:8501 skill-agent
+          for i in $(seq 1 30); do
+            curl -fs http://localhost:8501/_stcore/health && exit 0
+            sleep 2
+          done
+          docker logs agent
+          exit 1
+
+      - name: Validate compose.yaml
+        run: |
+          cp .env.example .env
+          DOMAIN=example.com docker compose config --quiet

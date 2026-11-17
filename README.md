@@ -121,6 +121,10 @@ docker run --rm -p 8501:8501 --env-file .env skill-agent              # dashboar
 docker run --rm -it --env-file .env skill-agent skill-agent chat      # CLI
 ```
 
+To put the dashboard on a server with your own domain and HTTPS, see
+[deploy/README.md](deploy/README.md). It uses `compose.yaml` with Caddy in front, and an optional
+`DASHBOARD_PASSWORD` so strangers can't spend your API credit.
+
 ## 2. Architecture
 
 ```mermaid
@@ -556,7 +560,8 @@ the graph and the dashboard all pick it up.
 - **One router call decides everything,** and it doesn't always fill in each skill's span in
   multi-task prompts. A second opinion on low-confidence routes and confidence calibrated on real
   data would help.
-- **The Dockerfile isn't built in CI.** It should be built, scanned and published there.
+- **The Docker image is built and health-checked in CI, but not published.** Pushing it to a
+  registry and scanning it would be the next step.
 
 ## 14. Assumptions
 

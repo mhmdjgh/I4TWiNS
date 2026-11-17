@@ -1,0 +1,29 @@
+# Dashboard behind Caddy, which gets and renews an HTTPS certificate for DOMAIN automatically.
+# Everything is configured in .env next to this file; see deploy/README.md.
+
+services:
+  app:
+    build: .
+    env_file: .env
+    restart: unless-stopped
+    expose:
+      - "8501"
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -15,6 +15,7 @@ import chat_page
 import evaluation_page
 import streamlit as st
 import theme
+from access import require_password
 from services import get_agent
 from strings import t
 
@@ -22,6 +23,7 @@ from skill_agent.config import get_settings
 
 st.set_page_config(page_title="Skill Agent", page_icon=":material/hub:", layout="centered")
 theme.apply()
+require_password()
 
 pages = [
     st.Page(chat_page.render, title=t("nav.chat"), url_path="chat", default=True),
