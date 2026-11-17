@@ -49,4 +49,6 @@ jobs:
           exit 1
 
       - name: Validate compose.yaml
-        run: DOMAIN=example.com docker compose config --quiet
+        run: |
+          cp .env.example .env
+          DOMAIN=example.com docker compose config --quiet
