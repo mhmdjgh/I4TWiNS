@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
+from skill_agent.text.languages import language_code
+
 _ALIASES = {
     "chat": "general_chat",
     "general": "general_chat",
@@ -73,10 +75,8 @@ class RoutingDecision(BaseModel):
     @field_validator("response_language", mode="before")
     @classmethod
     def _language_code(cls, value: object) -> object:
-        names = {"persian": "fa", "farsi": "fa", "english": "en"}
         if isinstance(value, str):
-            value = value.strip().lower()
-            return names.get(value, value)
+            return language_code(value) or value.strip().lower()
         return value
 
     @model_validator(mode="after")

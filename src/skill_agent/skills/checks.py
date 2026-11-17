@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 
+from skill_agent.text.languages import language_code
 from skill_agent.text.persian import ZWNJ, detect_language, to_ascii_digits
 
 WEEKDAYS = {
@@ -61,17 +62,6 @@ def _latin_leftovers(persian_text: str) -> list[str]:
     return sorted(set(_LOWERCASE_LATIN_WORD.findall(prose)))
 
 
-_LANGUAGE_CODES = {
-    "persian": "fa",
-    "farsi": "fa",
-    "fa": "fa",
-    "فارسی": "fa",
-    "english": "en",
-    "en": "en",
-    "انگلیسی": "en",
-}
-
-
 def target_code(target_language: str | None, source: str) -> str | None:
     """Language code the translation should be in, when it can be known without the output.
 
@@ -80,7 +70,7 @@ def target_code(target_language: str | None, source: str) -> str | None:
     """
     if target_language is None:
         return "en" if detect_language(source) == "fa" else "fa"
-    return _LANGUAGE_CODES.get(target_language.strip().lower())
+    return language_code(target_language)
 
 
 def translation_issues(
