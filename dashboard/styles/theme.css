@@ -29,6 +29,11 @@ section[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { di
 [data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li {
   unicode-bidi: plaintext; text-align: start; line-height: 1.8;
 }
+/* Math and code read left to right even inside a Persian line; otherwise the bidi algorithm
+   shows "120 - 42 + 20" as "20 + 42 - 120". */
+[data-testid="stMarkdownContainer"] code, .sa-row code, .sa-case code {
+  direction: ltr; unicode-bidi: isolate;
+}
 .material-symbols-rounded {
   font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; font-size: 18px;
   line-height: 1; display: inline-block; vertical-align: middle;
