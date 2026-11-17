@@ -10,6 +10,8 @@ showSidebarBorder = false
 
 [client]
 toolbarMode = "minimal"
+# Errors show a short message, never a stack trace, to visitors.
+showErrorDetails = "none"
 showSidebarNavigation = false
 
 [browser]
