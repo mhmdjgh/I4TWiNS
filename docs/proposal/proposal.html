@@ -118,7 +118,7 @@
     <div class="kpi"><b>100%</b><span>skill detection (15/15)</span></div>
     <div class="kpi"><b>4/4</b><span>ambiguous and no-skill cases handled</span></div>
     <div class="kpi"><b>~3 s</b><span>average end-to-end latency per prompt</span></div>
-    <div class="kpi"><b>196</b><span>offline tests · CI on every PR</span></div>
+    <div class="kpi"><b>212</b><span>offline tests · CI on every PR</span></div>
   </div>
 
   <h3>What makes the design hold up as it grows</h3>
@@ -448,7 +448,7 @@
 <section class="page">
   <h2>12. Engineering practice</h2>
   <div class="grid2">
-    <div class="card"><h4>Quality gates</h4>ruff (lint and format), mypy in strict mode, and 196
+    <div class="card"><h4>Quality gates</h4>ruff (lint and format), mypy in strict mode, and 212
       offline tests driven by a scripted chat model. They cover the evaluator, routing policies, every
       graph path, context mechanisms, translation checks, the CLI and the dashboard (Streamlit
       AppTest). GitHub Actions runs all of them on every push and pull request.</div>
@@ -472,8 +472,8 @@
     <tr><td>Estimated token counts; lexical shortlister</td><td>The model's tokenizer; multilingual embedding retrieval over skill cards</td></tr>
     <tr><td>Heuristic split of instruction and text in long prompts</td><td>Router-returned spans, or the text as a separate input</td></tr>
     <tr><td>Synchronous calls; sequential map-reduce</td><td>Async graph, concurrent chunks within rate limits, streaming</td></tr>
-    <tr><td>Translation checks detect wrong numbers, weekdays and Latin-script leftovers, but the repair uses the same small model (it kept the Spanish <i>suerte</i> for “good luck”)</td><td>Entity, date and unit alignment; domain glossaries; a larger model or reasoning for translation</td></tr>
-    <tr><td>Numeric calculator only</td><td>SymPy-backed tool for algebra, with the same safety envelope</td></tr>
+    <tr><td>Translation checks detect wrong numbers, weekdays and Latin-script leftovers, but the repair uses the same small model (it kept the Spanish <i>suerte</i> for “good luck”), and they cannot see a change of meaning</td><td>Entity, date and unit alignment; domain glossaries; a larger model or reasoning for translation</td></tr>
+    <tr><td>Numeric calculator only; story problems need a little reasoning to get the signs right, which makes them take 10–30 s</td><td>SymPy-backed tool for algebra, with the same safety envelope; a stronger extraction model</td></tr>
     <tr><td>No memory, auth, persistence; in-response trace only</td><td>Sessions, authentication, audit logs; OpenTelemetry/LangSmith tracing and cost metrics</td></tr>
   </table>
 

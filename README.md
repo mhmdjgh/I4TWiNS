@@ -504,7 +504,7 @@ limit was used up; the committed report is still run 6 on OpenRouter.
 ```bash
 uv run ruff check && uv run ruff format --check
 uv run mypy src dashboard          # strict
-uv run --extra dashboard pytest    # 204 tests, no network needed
+uv run --extra dashboard pytest    # 212 tests, no network needed
 ```
 
 The tests run offline against a scripted chat model that answers according to which prompt it
