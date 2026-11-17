@@ -384,24 +384,23 @@ Metric: exact match of the selected skill set (order checked for sequential case
 accuracy, per-category accuracy and per-skill precision/recall. Run with `uv run skill-agent eval`;
 the latest report is [`evals/report.md`](evals/report.md).
 
-### Results (`nemotron-3.5-lightning`, full run: routing and answers)
+### Results (`nvidia/nemotron-3.5-lightning:free` on OpenRouter, full run: routing and answers)
 
 | Metric | Result |
 |---|---|
-| **Skill-detection accuracy** | **14/15 (93%)** |
-| Clear / multi / ambiguous / no-skill | 7/7, 3/4, 2/2, 2/2 |
-| Per-skill precision | 1.00 for every label (recall: chat 0.80, translator 0.80, others 1.00) |
-| Average latency per prompt | ~3 s end to end |
+| **Skill-detection accuracy** | **15/15 (100%)** |
+| Clear / multi / ambiguous / no-skill | 7/7, 4/4, 2/2, 2/2 |
+| Sequential vs parallel mode | 3/3 |
+| Per-skill precision | 1.00 for every label (recall 1.00 except chat 0.80: the greeting + square-root case was answered by the calculator alone, an accepted alternative) |
 
-The one miss: *"Give me a two-line TL;DR of this paragraph, written in French"* was routed to
-`summarizer` alone instead of `summarizer → translator`. The answer is still correct: the summarizer
-honours the requested output language and returned a French TL;DR. It is counted as a miss because
-that is how the case is labelled. Every answer of the run is in [`evals/report.md`](evals/report.md).
+Every answer of the run is in [`evals/report.md`](evals/report.md). Two answers in that run were
+weak and led to the last fixes below. The parallel case is verified again after those fixes; the
+full set has not been re-run yet, because the run used most of the free tier's 50 daily requests.
 
 ### What the runs changed
 
 Each row is something a real run showed and the change it led to. Runs 1–2 used Nemotron 3 Nano
-Omni; runs 3–5 used Nemotron 3.5 Lightning.
+Omni; runs 3–6 used Nemotron 3.5 Lightning.
 
 | Run | Accuracy | Finding | Change |
 |---|---|---|---|
@@ -411,7 +410,8 @@ Omni; runs 3–5 used Nemotron 3.5 Lightning.
 | 2 | 13/15 | One real miss («اینو برام خلاصه کن» → summarizer); one case lost to the daily request limit. | Summarizer precondition: no text → ask for it. |
 | 3 | 15/15 routing | Translator returned **empty answers**: it spent the whole output limit on hidden reasoning, and the gateway rejected OpenRouter's switch for turning reasoning off. | Reasoning switch per provider (`LLM_REASONING_PARAM`); empty, truncated completions retried. |
 | 4 | 14/15 | With reasoning really off (≈2 s per prompt): an English poem request answered in Persian; a wrong attribution for algebra; a two-sentence summary nearly as long as the source; «…postponed شده است» in a translation. | Reply language stated to chat, low reasoning for chat only; summary length check; check for English left in Persian translations. |
-| 5 | **14/15** | Chained translator translated the original text instead of the summary; parallel translator also translated the calculation and invented its result. | Chained steps get only the instruction and previous output; the router pins each skill's span in multi-task prompts (used only if it occurs verbatim). The weekday repair fired and fixed the EN→FA translation live. |
+| 5 | 14/15 | Chained translator translated the original text instead of the summary; parallel translator also translated the calculation and invented its result. *"TL;DR … written in French"* was routed to the summarizer alone. | Chained steps get only the instruction and previous output; the router pins each skill's span in multi-task prompts (used only if it occurs verbatim). The weekday repair fired and fixed the EN→FA translation live. |
+| 6 | **15/15** | French TL;DR now `summarizer → translator`. In the parallel case the translator still worked on the calculation when the router left its span empty, or because the whole request sat next to the span. | Router rule: a summary in another language is always summarizer → translator, with a code guard that splits a summarizer step carrying a target language. Parallel translator falls back to the quoted text, and a skill with its own span sees only its instruction. Re-checked live: the calculation is no longer translated. |
 
 ---
 
@@ -420,7 +420,7 @@ Omni; runs 3–5 used Nemotron 3.5 Lightning.
 ```bash
 uv run ruff check && uv run ruff format --check
 uv run mypy src dashboard          # strict mode
-uv run --extra dashboard pytest    # 181 tests, no network
+uv run --extra dashboard pytest    # 196 tests, no network
 ```
 
 - The test suite runs offline with a scripted chat model that answers based on which prompt it
@@ -457,7 +457,7 @@ src/skill_agent/
 dashboard/app.py        Streamlit dashboard
 evals/                  dataset.yaml, report.md, results.json
 docs/                   prompt-engineering.md, proposal (PDF)
-tests/                  181 offline tests
+tests/                  196 offline tests
 ```
 
 ### Adding a skill
@@ -494,7 +494,7 @@ node and the dashboard pick it up; nothing else changes.
 | Lexical shortlister | Embedding retrieval over skill cards (multilingual embeddings), still with a pinned fallback |
 | `split_instruction` uses a heuristic (first colon or line break) to find the text inside a long prompt | Let the router return spans or offsets, or accept the text as a separate field (file upload or API body) |
 | Synchronous execution; map-reduce chunks run one after another | Async graph and concurrent chunk calls within rate limits; streaming responses |
-| Translation checks cover numbers, weekdays and leftover English only; idioms can still come out literal with reasoning off (`good luck with your exam` → «خوشبخت باشی روی امتحان‌ت») | Named-entity, date and unit alignment; glossary enforcement for domain terms |
+| Translation checks cover numbers, weekdays and Latin-script leftovers. They detect errors, but the repair relies on the same small model: for "good luck with your exam" it kept writing the Spanish *suerte* even after the targeted repair, and idioms can come out literal with reasoning off | A stronger translation model, or a second model for the repair step; named-entity, date and unit alignment; domain glossaries |
 | Calculator is numeric only (no symbolic algebra or equation solving) | A SymPy-backed tool with the same safety envelope |
 | No memory, auth, persistence or rate limiting (out of scope) | Per-user sessions, authentication, audit log, PII handling |
 | Observability is an in-response trace | OpenTelemetry/LangSmith tracing, metrics per node and model, cost tracking, alerting |
