@@ -1,16 +1,22 @@
 # Skill Agent
 
 [![CI](https://github.com/mhmdjgh/I4TWiNS/actions/workflows/ci.yml/badge.svg)](https://github.com/mhmdjgh/I4TWiNS/actions/workflows/ci.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-StateGraph-1C3C3C)
+![Model](https://img.shields.io/badge/model-Nemotron%203.5%20Lightning%2030B%20(free)-76B900)
+![Routing accuracy](https://img.shields.io/badge/routing-15%2F15-2EA44F)
 
 A small multi-skill agent built on LangGraph. You give it a free-form prompt in English or Persian,
 it works out which skill (or two) the request needs, runs them and sends back one answer.
+
+![The dashboard: a summarize-then-translate chain and a parallel translation plus calculation](docs/images/assistant.png)
 
 There are four skills:
 
 - **summarizer** shortens a text you give it. Texts that don't fit the context window are handled
   with map-reduce.
 - **translator** translates between Persian, English and other languages, and double-checks
-  numbers and weekdays afterwards.
+  numbers, weekdays and leftover source-language words afterwards.
 - **calculator** never lets the model do arithmetic. The model only writes the expression; a safe
   evaluator exposed as the LangChain tool `calculate` computes it.
 - **general_chat** handles greetings, small talk and general questions, and catches anything that
@@ -20,16 +26,32 @@ A prompt can use up to two skills. They run in parallel when the tasks are indep
 the other when the second needs the first one's output. The main interface is a CLI; there is also a
 Streamlit dashboard that shows what happened inside each request.
 
-Here is a real run (CLI output trimmed):
+### Quick start
 
-```text
-$ skill-agent ask "متن زیر را خلاصه کن و بعد خلاصه‌اش را به انگلیسی ترجمه کن: شهر اصفهان با پل‌های تاریخی، ..."
-routing  summarizer -> translator (sequential)
-answer   Isfahan, with its historic bridges, Naqsh-e Jahan Square, and Safavid architecture, is one
-         of Iran's top tourist destinations, attracting thousands of domestic and international
-         visitors annually, while the recent drying up of the Zayandeh River has damaged the city's
-         appearance and tourism-related businesses.
+```bash
+git clone https://github.com/mhmdjgh/I4TWiNS.git && cd I4TWiNS
+uv sync
+cp .env.example .env          # put a free OpenRouter key in LLM_API_KEY
+uv run skill-agent ask "این متن را خلاصه کن و به انگلیسی ترجمه کن: ..."
 ```
+
+### At a glance
+
+| The brief asks for | What I did | Where |
+|---|---|---|
+| Four skills, a real tool for math | Summarizer, translator, calculator (AST evaluator as a LangChain tool), general chat | [`skills/`](src/skill_agent/skills/), [`tools/`](src/skill_agent/tools/) |
+| Routing node with structured output | One model call returns JSON, validated with Pydantic against the skill registry | [`routing.py`](src/skill_agent/routing.py), [`nodes/router.py`](src/skill_agent/nodes/router.py) |
+| Up to two skills at once | Parallel with `Send` for independent tasks, a chain for dependent ones | [§4](#4-requests-that-need-two-skills) |
+| Fallback behaviour | Chat for anything else, a clarifying question when a skill can't run, enforced in code | [§5](#5-fallback-behaviour) |
+| Persian | Normalization, bilingual routing examples, checks on Persian output, right-to-left display | [§8](#8-persian) |
+| Free model, ≤35B | `nvidia/nemotron-3.5-lightning:free`, 30B (3B active), OpenRouter free tier | [§9](#9-model-and-provider) |
+| Prompt engineering, with a before/after | Every prompt's history, what broke and what changed | [§7](#7-skills-and-prompts), [prompt notes](docs/prompt-engineering.md) |
+| Evaluation set and accuracy | 15 labelled prompts in both languages: 15/15 skills detected | [§10](#10-evaluation), [report](evals/report.md) |
+| Limitations, assumptions | | [§13](#13-limitations-and-what-production-would-need), [§14](#14-assumptions) |
+| CLI | `skill-agent ask / chat / route / eval` | [§1](#cli) |
+
+Beyond the brief: context-window protection for many skills and long texts (§6), a dashboard, Docker
+and a hosting setup, and an [architecture proposal (PDF)](docs/proposal/Skill-Agent-Architecture-Proposal.pdf).
 
 ## Contents
 
@@ -50,7 +72,7 @@ answer   Isfahan, with its historic bridges, Naqsh-e Jahan Square, and Safavid a
 
 ## 1. Running it
 
-You need Python 3.11+, [uv](https://docs.astral.sh/uv/) and a free
+You need Python 3.12+, [uv](https://docs.astral.sh/uv/) and a free
 [OpenRouter](https://openrouter.ai/keys) key. No credit is needed for the free models.
 
 ```bash
@@ -112,6 +134,8 @@ said not to build a web API, so there is no API layer behind it. It has three pa
 
 The layout works on phones too. The interface is in English; prompts and answers can be in either
 language, and Persian answers are laid out right to left.
+
+![The "How it works" page: request lifecycle and the compiled graph](docs/images/how-it-works.png)
 
 ### Docker
 
@@ -379,6 +403,12 @@ is optional, a model can skip it and answer from memory; this way the tool alway
 include a set of injection attempts (`__import__`, dunder tricks, lambdas, attribute access, keyword
 arguments).
 
+The weak spot is the step before the tool: turning a story into an expression. For «… ۳۵ درصد آن‌ها
+را بفروشد و بعد ۲۰ عدد دیگر بخرد» the model wrote `- 20` for "buys 20 more", every time. Requests
+that look like a story (three or more numbers, no math symbols) now get a little reasoning for that
+one call, which fixed it; written expressions stay fast. The details are in the
+[prompt notes](docs/prompt-engineering.md#story-problems).
+
 ## 8. Persian
 
 - **Input**: Arabic ي and ك become Persian ی and ک, tatweel is removed, and half-spaces (ZWNJ) are
@@ -447,13 +477,12 @@ Full run on OpenRouter with `nvidia/nemotron-3.5-lightning:free`, covering both 
 | Sequential vs parallel | 3/3 |
 | Per skill | precision 1.00 everywhere; recall 1.00 except chat (0.80), because the greeting plus square-root case was answered by the calculator alone, which the dataset accepts |
 
-All the answers are in [`evals/report.md`](evals/report.md). Two of them were weak and led to the last
-fixes in the table below. I checked the parallel case again live after those fixes, but haven't
-re-run the whole set, because that run used most of the day's free requests.
+All the answers are in [`evals/report.md`](evals/report.md). Two of them were weak and led to the
+fixes in run 6 below. After the later fixes I ran the whole set again (run 7): still 15/15.
 
 ### What each run taught me
 
-Runs 1 and 2 used Nemotron 3 Nano Omni; runs 3 to 6 used Nemotron 3.5 Lightning.
+Runs 1 and 2 used Nemotron 3 Nano Omni; runs 3 to 7 used Nemotron 3.5 Lightning.
 
 | Run | Score | What went wrong | What I changed |
 |---|---|---|---|
@@ -465,6 +494,10 @@ Runs 1 and 2 used Nemotron 3 Nano Omni; runs 3 to 6 used Nemotron 3.5 Lightning.
 | 4 | 14/15 | With reasoning really off, things got faster (about 2 s a prompt) but: an English poem request was answered in Persian, the algebra question got a wrong name, a two-sentence summary was nearly as long as the text, and «…postponed شده است» appeared in a translation. | Chat is told the reply language and uses a little reasoning; summaries get a length check; translations are checked for leftover English. |
 | 5 | 14/15 | In a chain the translator translated the original text instead of the summary; in the parallel case it translated the calculation too and invented the result. The French TL;DR went to the summarizer alone. | Chained steps only get the instruction and the previous output; the router can pin each skill's span. |
 | 6 | **15/15** | The French TL;DR is now summarizer then translator. In the parallel case the translator still sometimes saw the calculation. | A rule that a summary in another language is two skills, with a code guard behind it. The parallel translator falls back to the quoted text and only sees its own instruction. |
+| 7 | **15/15** | Routing held. Using the dashboard turned up problems the set doesn't cover: the router sometimes gave the translator a span that also held the calculation; the translator's correction could repeat the word it was fixing; a story problem got a sign wrong; and a math expression in a Persian answer was displayed back to front. | Overlapping spans are cut apart in code; corrections are re-checked with one warmer retry; story problems get a little reasoning; code spans are always laid out left to right. |
+
+Run 7 used the same model through another OpenAI-compatible gateway, because the free tier's daily
+limit was used up; the committed report is still run 6 on OpenRouter.
 
 ## 11. Tests and code quality
 
@@ -481,8 +514,9 @@ notation, errors, injection attempts), the routing schema and its rules, every p
 context mechanisms, the translation checks, the CLI and the dashboard (with Streamlit's `AppTest`).
 GitHub Actions runs lint, type checks and tests on every push and pull request.
 
-Every change went through its own branch and pull request (`feat/`, `fix/`, `test/`, `docs/`, `ci/`,
-`chore/`) and was merged with a merge commit, so the history reads feature by feature. Commit messages
+Every change went through its own branch (`feat/`, `fix/`, `test/`, `docs/`, `ci/`, `chore/`,
+`refactor/`) and was merged with a merge commit, so the history reads feature by feature; the
+[pull requests](https://github.com/mhmdjgh/I4TWiNS/pulls?q=is%3Apr) explain each one. Commit messages
 follow Conventional Commits and the body usually says why the change was needed.
 
 ## 12. Project layout
@@ -506,7 +540,8 @@ src/skill_agent/
 └── prompts/*.md        one prompt per skill, plus the router's
 dashboard/              Streamlit app
 evals/                  dataset.yaml, report.md, results.json
-docs/                   prompt-engineering.md, proposal (PDF)
+docs/                   prompt-engineering.md, proposal (PDF), screenshots
+deploy/                 Caddy config and hosting notes
 tests/
 ```
 
@@ -549,8 +584,11 @@ the graph and the dashboard all pick it up.
 - **Translation checks catch, but can't always fix.** They cover numbers, weekdays and stray
   Latin-script words, but the correction is done by the same small model. For "good luck with your
   exam" it kept writing the Spanish *suerte* even after being told exactly what was wrong, and with
-  reasoning off idioms can come out literal. A stronger translation model, or a different model for
-  the correction step, would fix most of this.
+  reasoning off idioms can come out literal. The checks also can't see meaning: once, "moved to
+  Thursday" came out as «لغو شد» (cancelled). A stronger translation model, a different model for the
+  correction step, or a back-translation check would fix most of this.
+- **Story problems are slower.** They get a little reasoning, which takes 10 to 30 seconds instead of
+  about 2. Other calculations are unaffected.
 - **The calculator is numeric only.** Algebra and equation solving would need something like SymPy
   inside the same safety limits.
 - **No memory, accounts or storage.** All out of scope here; production would need sessions,

@@ -205,6 +205,13 @@ takes the expected language from the request rather than guessing it from the ou
 tomorrow» has more Latin than Persian letters, so guessing would call it an English translation and
 miss the problem.
 
+Later, trying the dashboard, I saw the correction itself fail: at temperature 0 it sometimes returned
+the same «… postponed» it had been told to fix, and that went to the user. The corrected text is now
+checked again; if it is still flagged there is one more try at temperature 0.7, and the version with
+the fewest problems wins. It also showed the limit of this approach: in one run the second try
+replaced *postponed* with «لغو شد» ("cancelled"). The check only knows that the English word is gone,
+not that the meaning changed.
+
 Two weaknesses remain, both down to the model rather than the prompt. Idioms can come out too literal
 with reasoning off ("good luck with your exam" became «خوشبخت باشی روی امتحان‌ت» rather than
 «در امتحانت موفق باشی»). And for "good luck" the model sometimes writes the Spanish word *suerte*
@@ -232,6 +239,28 @@ before the first run, so there's no before-and-after here, just the reasons for 
 
 In the full evaluation runs every calculation went through the tool: 25% of 840,000 tomans,
 `(17.5 * 42) / 3 + 2^10`, 15% of 3,200 and the square root of 196.
+
+### Story problems
+
+The evaluation set has no story problem, and that's where the first real bug showed up. Asked
+«یک مغازه ۱۲۰ عدد مداد دارد. اگر ۳۵ درصد آن‌ها را بفروشد و بعد ۲۰ عدد دیگر بخرد، چند مداد دارد؟»,
+the agent answered 58. The tool was right; the expression was `120 - 120 * 35 / 100 - 20`, with the
+wrong sign on "buys 20 more". It failed the same way every time.
+
+What I tried, in order:
+
+1. A rule: follow the story in order, what is gained (bought, received; خرید، گرفت) is `+`, what is
+   lost (sold, spent; فروخت، خرج کرد) is `-`, and a percentage refers to the amount at that point.
+   Plus one example in each language. Four other story problems were fine; this one still wasn't.
+2. The router's instruction had the same mistake ("then subtract 20"), and the calculator gets it as
+   a hint. Dropping the hint didn't fix this case and broke another one («۱۵ درصد باقی‌مانده» was
+   taken as 15% of the original amount), so the hint stayed.
+3. A little reasoning for the extraction call. That fixed it on every run.
+
+Reasoning costs time (10 to 30 seconds instead of 2), so it's only used when the request looks like a
+story: three or more numbers and no math symbols. `(17.5 * 42) / 3` and "25% of 840" don't qualify.
+The check looks only at the user's words; the router's hint can contain symbols, and checking it too
+switched reasoning off by accident.
 
 ## General chat
 
