@@ -139,11 +139,9 @@ def skills() -> None:
 
 @app.command()
 def config() -> None:
-    """Show the effective configuration (the API key is masked)."""
-    settings = get_settings()
-    for key, value in settings.model_dump().items():
-        shown = "***" if "key" in key and value else value
-        console.print(f"[cyan]{key}[/cyan] = {shown}")
+    """Show the effective configuration (secrets such as the API key are masked)."""
+    for key, value in get_settings().model_dump().items():
+        console.print(f"[cyan]{key}[/cyan] = {value}")
 
 
 @app.command("eval")

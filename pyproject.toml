@@ -3,7 +3,7 @@ name = "skill-agent"
 version = "0.1.0"
 description = "LangGraph agent that routes free-form English/Persian prompts to summarizer, translator, calculator and chat skills."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "langchain-core>=1.8.1",
     "langchain-openai>=1.8.0",
@@ -32,7 +32,7 @@ packages = ["src/skill_agent"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -40,13 +40,13 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "C4", "PTH"]
 ignore = ["RUF001", "RUF002", "RUF003"]  # Persian text legitimately contains look-alike characters
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 mypy_path = "src"
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["streamlit.*", "yaml.*", "pandas.*"]
+module = ["streamlit.*", "yaml.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
