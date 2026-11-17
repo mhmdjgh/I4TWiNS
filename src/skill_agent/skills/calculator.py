@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, Field
 
 from skill_agent.context.tokens import excerpt
@@ -18,6 +20,19 @@ class MathProblem(BaseModel):
 class MathPlan(BaseModel):
     problems: list[MathProblem] = Field(default_factory=list, max_length=5)
     note: str | None = None
+
+
+_NUMBER = re.compile(r"[0-9۰-۹٠-٩]+(?:[.,٫٬][0-9۰-۹٠-٩]+)*")
+_OPERATOR = re.compile(r"[+*/^×÷=]|\d\s*-\s*\d")
+
+
+def is_word_problem(text: str) -> bool:
+    """Three or more numbers and no math symbols: a story the model has to turn into math.
+
+    Without reasoning the model got the sign of a step wrong in such stories ("then buys 20
+    more" became "- 20"). Written expressions and "X% of Y" don't need it and stay fast.
+    """
+    return len(_NUMBER.findall(text)) >= 3 and not _OPERATOR.search(text)
 
 
 _MESSAGES = {
@@ -76,7 +91,10 @@ class Calculator(Skill):
         if task.instruction:
             user = f"{user}\n\n(Focus: {task.instruction})"
 
-        plan, usage = self.llm.structured(system, user, MathPlan, max_tokens=600)
+        reasoning = "low" if is_word_problem(user) else None
+        plan, usage = self.llm.structured(
+            system, user, MathPlan, max_tokens=600, reasoning=reasoning
+        )
         messages = _MESSAGES["fa" if task.language == "fa" else "en"]
         if not plan.problems:
             text = messages["nothing"] + (f" {plan.note}" if plan.note else "")

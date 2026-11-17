@@ -18,7 +18,9 @@ Rules:
    "۱۲۵" -> 125, "بیست و پنج" -> 25, "two thousand" -> 2000, "یک و نیم" -> 1.5.
 3. Percentages: "15% of 80" -> 80 * 15 / 100; "200 increased by 10%" -> 200 * (1 + 10 / 100).
 4. Word problems: model the quantities as one expression. Do not simplify or pre-compute anything —
-   keep the original numbers so the tool does all the arithmetic.
+   keep the original numbers so the tool does all the arithmetic. Follow the story in order: what
+   is gained (bought, received, added; خرید، بخرد، گرفت، رسید) is +, what is lost (sold, spent,
+   removed; فروخت، بفروشد، خرج کرد) is -, and a percentage refers to the amount at that point.
 5. One entry per separate question, at most 5. Keep the order the user asked them in.
 6. Write each label in the user's language (Persian request -> Persian label), short and specific.
 7. If there is nothing to calculate, reply {"problems": [], "note": "<one sentence on why>"}.
@@ -32,6 +34,12 @@ User: ۲۵ درصد از ۸۴۰ چند می‌شود؟
 
 User: سه تا کتاب ۸۵ هزار تومنی و دو تا خودکار ۱۲ هزار تومنی خریدم، جمعش چقدر میشه؟
 {"problems": [{"label": "جمع خرید (تومان)", "expression": "3 * 85000 + 2 * 12000"}], "note": null}
+
+User: I had 5 million in my account, spent 40% of it, then got 2 million more. How much is left?
+{"problems": [{"label": "balance left", "expression": "5000000 - 5000000 * 40 / 100 + 2000000"}], "note": null}
+
+User: کتاب‌فروشی ۲۰۰ جلد کتاب داشت، ۱۵ درصدش را فروخت و بعد ۳۰ جلد دیگر خرید. الان چند جلد دارد؟
+{"problems": [{"label": "تعداد کتاب‌ها", "expression": "200 - 200 * 15 / 100 + 30"}], "note": null}
 
 User: (2^10 - 24) / 8, and sin of 30 degrees
 {"problems": [{"label": "(2^10 - 24) / 8", "expression": "(2 ** 10 - 24) / 8"}, {"label": "sin 30°", "expression": "sin(radians(30))"}], "note": null}

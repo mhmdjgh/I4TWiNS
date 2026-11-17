@@ -173,6 +173,7 @@ class LLMClient:
         *,
         context: dict[str, Any] | None = None,
         max_tokens: int | None = None,
+        reasoning: str | None = None,
     ) -> tuple[M, Usage]:
         """Ask for a JSON object and validate it against `schema`.
 
@@ -184,6 +185,7 @@ class LLMClient:
         extra: dict[str, Any] = (
             {"response_format": {"type": "json_object"}} if self._json_mode else {}
         )
+        extra["reasoning"] = reasoning
         usage = Usage()
         error: Exception | None = None
 
