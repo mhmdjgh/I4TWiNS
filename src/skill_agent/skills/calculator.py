@@ -87,11 +87,10 @@ class Calculator(Skill):
 
     def run(self, task: SkillTask) -> SkillOutput:
         system = render(load_prompt("calculator"), functions=", ".join(FUNCTIONS))
-        user = excerpt(task.input_text or task.prompt, self.budget.input_room(system, 600))
-        if task.instruction:
-            user = f"{user}\n\n(Focus: {task.instruction})"
-
-        reasoning = "low" if is_word_problem(user) else None
+        text = excerpt(task.input_text or task.prompt, self.budget.input_room(system, 600))
+        user = f"{text}\n\n(Focus: {task.instruction})" if task.instruction else text
+        # Decided on the user's words only: the router's instruction may add symbols ("120 - 35%").
+        reasoning = "low" if is_word_problem(text) else None
         plan, usage = self.llm.structured(
             system, user, MathPlan, max_tokens=600, reasoning=reasoning
         )

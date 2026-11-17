@@ -66,7 +66,14 @@ def test_word_problems_get_a_little_reasoning() -> None:
     calculator = Calculator(llm, Settings(_env_file=None))
 
     def task(prompt: str) -> SkillTask:
-        return SkillTask(step=0, skill="calculator", instruction="", prompt=prompt, language="en")
+        # The router's instruction has symbols; only the user's own words decide.
+        return SkillTask(
+            step=0,
+            skill="calculator",
+            instruction="compute 120 - 42 + 20",
+            prompt=prompt,
+            language="en",
+        )
 
     calculator.run(task("A shop has 120 pencils, sells 42 and buys 20 more. How many now?"))
     calculator.run(task("What is 120 - 42 + 20?"))
