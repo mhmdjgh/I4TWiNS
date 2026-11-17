@@ -107,6 +107,8 @@ class Router:
             step = SkillStep(skill=self.registry.fallback, instruction="reply to the user")
             return decision.model_copy(update={"skills": [step], "mode": "single"})
 
+        decision = self._split_summary_translation(decision)
+
         only_fallback = decision.skill_names == [self.registry.fallback]
         if decision.confidence < self.settings.clarify_below_confidence and not only_fallback:
             return decision.model_copy(
@@ -118,6 +120,30 @@ class Router:
                 }
             )
         return decision
+
+    def _split_summary_translation(self, decision: RoutingDecision) -> RoutingDecision:
+        """A summary in another language is summarizer -> translator, never one step.
+
+        If the router puts a target language on a lone summarizer step ("TL;DR in French"), the
+        change of language is handed to the translator, which has the checks for it.
+        """
+        steps = decision.skills
+        if (
+            len(steps) != 1
+            or steps[0].skill != "summarizer"
+            or not steps[0].target_language
+            or "translator" not in self.registry
+            or self.settings.max_skills_per_request < 2
+        ):
+            return decision
+        target = steps[0].target_language
+        summarize = steps[0].model_copy(update={"target_language": None})
+        translate = SkillStep(
+            skill="translator",
+            instruction=f"translate the summary into {target}",
+            target_language=target,
+        )
+        return decision.model_copy(update={"skills": [summarize, translate], "mode": "sequential"})
 
     @staticmethod
     def describe(decision: RoutingDecision) -> str:
