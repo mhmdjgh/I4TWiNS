@@ -7,6 +7,17 @@ from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, ta
 from skill_agent.skills.checks import target_code, translation_issues
 from skill_agent.skills.registry import register_skill
 
+_REPAIR_TEMPERATURES = (0.0, 0.7)
+
+
+def _repair_request(message: str, translation: str, issues: list[str]) -> str:
+    problems = "\n".join(f"- {issue}" for issue in issues)
+    return (
+        f"{message}\n\n"
+        f"Your previous translation:\n<translation>\n{translation}\n</translation>\n"
+        f"It has these problems:\n{problems}\nReturn the corrected translation only."
+    )
+
 
 @register_skill
 class Translator(Skill):
@@ -48,30 +59,32 @@ class Translator(Skill):
         else:
             instruction, source = split_instruction(task.prompt)
             delimited = bool(instruction)
-        issues = translation_issues(
-            source,
-            reply.text,
-            check_numbers=delimited,
-            target=target_code(task.target_language, source),
-        )
-        if not issues:
-            return SkillOutput(text=reply.text, usage=reply.usage)
+        target = target_code(task.target_language, source)
 
-        # One targeted correction: the model is told exactly which facts it got wrong.
-        problems = "\n".join(f"- {issue}" for issue in issues)
-        repair = (
-            f"{message}\n\n"
-            f"Your previous translation:\n<translation>\n{reply.text}\n</translation>\n"
-            f"It has these problems:\n{problems}\nReturn the corrected translation only."
-        )
-        fixed = self.llm.complete(
-            system, repair, max_tokens=task.max_output_tokens, temperature=0.0
-        )
-        return SkillOutput(
-            text=fixed.text,
-            usage=reply.usage + fixed.usage,
-            notes=[f"corrected after check: {'; '.join(issues)}"],
-        )
+        def check(text: str) -> list[str]:
+            return translation_issues(source, text, check_numbers=delimited, target=target)
+
+        text, issues, usage = reply.text, check(reply.text), reply.usage
+        notes: list[str] = []
+        # Targeted corrections: the model is told exactly which facts it got wrong. The first try
+        # is deterministic; when it repeats the mistake, a warmer second try usually doesn't.
+        for temperature in _REPAIR_TEMPERATURES:
+            if not issues:
+                break
+            notes.append(f"corrected after check: {'; '.join(issues)}")
+            fixed = self.llm.complete(
+                system,
+                _repair_request(message, text, issues),
+                max_tokens=task.max_output_tokens,
+                temperature=temperature,
+            )
+            usage += fixed.usage
+            remaining = check(fixed.text)
+            if len(remaining) <= len(issues):
+                text, issues = fixed.text, remaining
+        if issues:
+            notes.append(f"still flagged: {'; '.join(issues)}")
+        return SkillOutput(text=text, usage=usage, notes=notes)
 
     def _chunked(self, system: str, task: SkillTask) -> SkillOutput:
         """Translate a long text chunk by chunk.
