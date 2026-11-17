@@ -1,4 +1,4 @@
-"""Assistant page: a quiet chat. Technical details stay folded under each answer."""
+"""Assistant page: chat with the agent. Technical details are folded under each answer."""
 
 from __future__ import annotations
 
@@ -76,7 +76,10 @@ def _details(response: AgentResponse) -> None:
         if len(response.results) > 1:
             for result in response.results:
                 st.caption(f"{result.step + 1}. {result.skill}")
-                st.markdown(result.output.text if result.output else f"⚠️ {result.error}")
+                if result.output:
+                    st.markdown(result.output.text)
+                else:
+                    st.markdown(f":material/warning: {result.error}")
         with st.popover(t("chat.raw"), icon=":material/data_object:"):
             st.json(json.loads(response.model_dump_json()), expanded=False)
 
@@ -95,13 +98,13 @@ def _exchange(response: AgentResponse, index: int) -> None:
         with st.container(key=f"answer-{index}-{answer_direction(response)}"):
             st.markdown(response.answer)
             if response.error:
-                st.caption(f"⚠️ {response.error}")
+                st.caption(f":material/warning: {response.error}")
         st.html(meta_line(response))
         _details(response)
 
 
 def render() -> None:
-    agent, _ = get_agent()
+    agent = get_agent()
     history = _history()
 
     if not history:

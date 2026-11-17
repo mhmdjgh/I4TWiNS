@@ -103,7 +103,7 @@ def render() -> None:
     st.html(subheading(t("arch.graph")))
     with st.container(border=True):
         _mermaid(GRAPH, 300)
-    agent, _ = get_agent()
+    agent = get_agent()
     if agent is not None:
         with st.expander(t("arch.compiled")):
             _mermaid(agent.mermaid(), 560)

@@ -18,9 +18,9 @@ def _load_agent() -> Agent:
     return Agent.from_settings()
 
 
-def get_agent() -> tuple[Agent | None, str | None]:
-    """The agent, or the reason it could not be created (usually a missing API key)."""
+def get_agent() -> Agent | None:
+    """The agent, or None when it cannot be created (usually a missing API key)."""
     try:
-        return _load_agent(), None
-    except ConfigurationError as exc:
-        return None, str(exc)
+        return _load_agent()
+    except ConfigurationError:
+        return None

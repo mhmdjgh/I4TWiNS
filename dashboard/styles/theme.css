@@ -1,5 +1,4 @@
-/* Light, minimal design. One accent colour, quiet surfaces, generous spacing.
-   Mobile first: every custom layout below wraps or stacks on narrow screens. */
+/* Styles on top of Streamlit's light theme. Custom layouts wrap or stack on narrow screens. */
 
 :root {
   --bg: #fafaf9;

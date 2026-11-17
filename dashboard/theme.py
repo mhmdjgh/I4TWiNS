@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit as st
 
 STYLES = Path(__file__).parent / "styles"
-# Vazirmatn stays: answers and prompts are often Persian even though the interface is English.
+# Vazirmatn renders Persian prompts and answers.
 FONTS = (
     "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800"
     "&family=Vazirmatn:wght@400;500;600;700"

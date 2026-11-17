@@ -9,9 +9,16 @@ from components import heading, icon, meter, skill, stat, subheading
 from services import DATASET, LOCAL_RUN, RESULTS, get_agent
 from strings import t
 
-from skill_agent.evaluation import CaseResult, EvalReport, evaluate, load_cases
+from skill_agent.evaluation import (
+    EVAL_DELAY_S,
+    CaseResult,
+    Category,
+    EvalReport,
+    evaluate,
+    load_cases,
+)
 
-CATEGORY_LABELS = {
+CATEGORY_LABELS: dict[Category, str] = {
     "clear": "Clear",
     "multi": "Multi-skill",
     "ambiguous": "Ambiguous",
@@ -19,7 +26,7 @@ CATEGORY_LABELS = {
 }
 
 
-def _category(name: str) -> str:
+def _category(name: Category) -> str:
     return CATEGORY_LABELS.get(name, name)
 
 
@@ -70,7 +77,8 @@ def _load() -> EvalReport | None:
 
 
 def render() -> None:
-    st.html(heading(t("eval.title"), t("eval.subtitle")))
+    cases = load_cases(DATASET)
+    st.html(heading(t("eval.title"), t("eval.subtitle", count=len(cases))))
     report = _load()
     if report is None:
         st.info(t("eval.empty"), icon=":material/info:")
@@ -92,7 +100,7 @@ def render() -> None:
 
     st.html(subheading(t("eval.by_category")))
     meters = "".join(
-        meter(escape(_category(name)), hit / total, f"{hit}/{total}")
+        meter(_category(name), hit / total, f"{hit}/{total}")
         for name, (hit, total) in report.by_category().items()
     )
     st.html(f'<div class="sa-panel">{meters}</div>')
@@ -121,11 +129,10 @@ def render() -> None:
     ]
     st.html(f'<div class="sa-panel">{"".join(_case(r, with_answers) for r in shown)}</div>')
 
-    agent, _ = get_agent()
-    st.html(subheading(t("eval.rerun"), t("eval.rerun.note")))
+    agent = get_agent()
+    st.html(subheading(t("eval.rerun"), t("eval.rerun.note", count=len(cases))))
     if st.button(t("eval.rerun"), icon=":material/replay:", disabled=agent is None):
         assert agent is not None
-        cases = load_cases(DATASET)
         progress = st.progress(0.0)
         done: list[int] = []
 
@@ -133,7 +140,7 @@ def render() -> None:
             done.append(1)
             progress.progress(len(done) / len(cases))
 
-        fresh = evaluate(agent, cases, delay_s=3.0, on_result=tick)
+        fresh = evaluate(agent, cases, delay_s=EVAL_DELAY_S, on_result=tick)
         # Saved next to, never over, the committed results (evals/runs/ is git-ignored).
         LOCAL_RUN.parent.mkdir(parents=True, exist_ok=True)
         LOCAL_RUN.write_text(fresh.model_dump_json(indent=2), encoding="utf-8", newline="\n")
