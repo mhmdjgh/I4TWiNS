@@ -121,6 +121,24 @@ class TestRouterNode:
         question = route(router, "اینو برام خلاصه کن", "fa").clarification_question or ""
         assert question.startswith("مطمئن نیستم")
 
+    def test_summary_with_target_language_becomes_a_chain(self) -> None:
+        body = decision(skills=[step("summarizer", target_language="French")], confidence=0.9)
+        router, _ = make_router(body)
+        result = route(router, "Give me a TL;DR of this in French: ...")
+        assert result.skill_names == ["summarizer", "translator"]
+        assert result.mode == "sequential"
+        assert result.skills[0].target_language is None
+        assert result.skills[1].target_language == "French"
+
+    def test_summary_without_target_language_stays_single(self) -> None:
+        router, _ = make_router(decision(skills=[step("summarizer")], confidence=0.9))
+        assert route(router, "Summarize: ...").skill_names == ["summarizer"]
+
+    def test_summary_split_respects_the_skill_limit(self) -> None:
+        body = decision(skills=[step("summarizer", target_language="French")], confidence=0.9)
+        router, _ = make_router(body, max_skills_per_request=1)
+        assert route(router, "TL;DR in French: ...").skill_names == ["summarizer"]
+
     def test_low_confidence_turns_into_clarification(self) -> None:
         router, _ = make_router(decision(skills=[step("calculator")], confidence=0.2))
         assert route(router, "do the thing").needs_clarification

@@ -48,7 +48,9 @@ def test_mostly_english_output_is_still_checked_as_persian() -> None:
     # «ببینمت tomorrow» has more Latin than Persian letters; guessing would call it English.
     assert translation_issues("see you tomorrow", "ببینمت tomorrow") == []
     issues = translation_issues("see you tomorrow", "ببینمت tomorrow", target="fa")
-    assert issues == ["English words left untranslated: tomorrow"]
+    assert issues == [
+        "words in Latin script left in the Persian text (write them in Persian): tomorrow"
+    ]
 
 
 def test_target_code() -> None:

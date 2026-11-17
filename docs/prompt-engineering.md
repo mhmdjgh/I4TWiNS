@@ -76,17 +76,22 @@ copied exactly"*), required by the rule for parallel requests and shown in the p
 Code adds two guards: a pinned span is used only if it occurs verbatim in the message, and a
 chained step receives only the user's instruction plus the previous output.
 
-### Remaining miss
+### Earlier misses
 
 With Nemotron 3 Nano Omni, «اینو برام خلاصه کن» ("summarize this for me", with no text) was
 routed to the summarizer. Rather than add an example that mirrors the test case, the summarizer now
 checks its own precondition (fewer than 8 words of text → ask for the text). Nemotron 3.5 Lightning
 routed it to a clarification directly.
 
-In the final run, the only miss was *"a two-line TL;DR of this paragraph, written in French"*,
-routed to the summarizer alone. The answer is still a correct French TL;DR, because the summarizer
-writes in the language the Task line names. The label was left as it was; changing labels after
-seeing results would inflate the score.
+*"A two-line TL;DR of this paragraph, written in French"* was routed to the summarizer alone. The
+answer was still French, but the label (summarizer → translator) was kept: changing labels after
+seeing results would inflate the score. The fix went into the rules instead: *"A summary, TL;DR or
+key points requested in a language other than the text's own language is always two skills, even if
+the user never says 'translate': summarizer, then translator with that target_language."* To avoid
+fitting the evaluation, the example in rule 4 was changed from French to Spanish rather than adding
+a French TL;DR example. A code guard covers the router putting a target language on a lone
+summarizer step: that step is split into summarizer → translator. The next full run routed all 15
+cases correctly.
 
 ---
 

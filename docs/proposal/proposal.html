@@ -115,10 +115,10 @@
     tool. Fallbacks and clarifications are deterministic code paths, not prompt suggestions.</p>
 
   <div class="kpis">
-    <div class="kpi"><b>93%</b><span>skill detection (14/15)</span></div>
+    <div class="kpi"><b>100%</b><span>skill detection (15/15)</span></div>
     <div class="kpi"><b>4/4</b><span>ambiguous and no-skill cases handled</span></div>
     <div class="kpi"><b>~3 s</b><span>average end-to-end latency per prompt</span></div>
-    <div class="kpi"><b>181</b><span>offline tests · CI on every PR</span></div>
+    <div class="kpi"><b>196</b><span>offline tests · CI on every PR</span></div>
   </div>
 
   <h3>What makes the design hold up as it grows</h3>
@@ -438,23 +438,17 @@
     <tr><td>checks</td><td>–</td><td>English clarification for a Persian request → prompt rule and code guard. Summarizer and translator errors on real outputs → prompt v2 and translator verification.</td></tr>
     <tr><td>2</td><td>13/15</td><td>One real miss (summary requested without text → summarizer now asks for it); one case lost to the free tier's 50 requests/day limit.</td></tr>
     <tr><td>3–4</td><td>15/15 · 14/15</td><td>Empty translations (all output spent on hidden reasoning; the gateway rejected OpenRouter's switch) → reasoning switch per provider, retry of empty answers. With reasoning off: English poem answered in Persian, wrong attribution, weak compression, English word left in a translation → reply language stated, low reasoning for chat only, summary length check, leftover-English check.</td></tr>
-    <tr><td>5</td><td><span class="ok">14/15</span></td><td>Clear 7/7, multi 3/4, ambiguous 2/2, no-skill 2/2. Translator had worked on text outside its share (whole text in a chain, the calculation in a parallel request) → chained steps get only the instruction and previous output; router pins each skill's span. Only miss: French TL;DR routed to the summarizer alone (answer still correct).</td></tr>
+    <tr><td>5</td><td>14/15</td><td>Translator had worked on text outside its share (whole text in a chain, the calculation in a parallel request) → chained steps get only the instruction and previous output; router pins each skill's span. Miss: French TL;DR routed to the summarizer alone.</td></tr>
+    <tr><td>6</td><td><span class="ok">15/15</span></td><td>Clear 7/7, multi 4/4, ambiguous 2/2, no-skill 2/2, mode 3/3. Rule: a summary in another language is summarizer → translator (plus a code guard). Parallel translator falls back to the quoted text and sees only its own instruction.</td></tr>
   </table>
-  <table>
-    <tr><th>Label</th><th>Precision</th><th>Recall</th><th>Support</th></tr>
-    <tr><td>calculator</td><td>1.00</td><td>1.00</td><td>4</td></tr>
-    <tr><td>summarizer</td><td>1.00</td><td>1.00</td><td>3</td></tr>
-    <tr><td>clarify</td><td>1.00</td><td>1.00</td><td>2</td></tr>
-    <tr><td>translator</td><td>1.00</td><td>0.80</td><td>5</td></tr>
-    <tr><td>general_chat</td><td>1.00</td><td>0.80</td><td>5</td></tr>
-  </table>
+  <p>Per skill: precision 1.00 for every label; recall 1.00 except general chat (0.80), because the greeting + square-root case was answered by the calculator alone, an accepted alternative.</p>
 </section>
 
 <!-- ============ 12-13 ============ -->
 <section class="page">
   <h2>12. Engineering practice</h2>
   <div class="grid2">
-    <div class="card"><h4>Quality gates</h4>ruff (lint and format), mypy in strict mode, and 181
+    <div class="card"><h4>Quality gates</h4>ruff (lint and format), mypy in strict mode, and 196
       offline tests driven by a scripted chat model. They cover the evaluator, routing policies, every
       graph path, context mechanisms, translation checks, the CLI and the dashboard (Streamlit
       AppTest). GitHub Actions runs all of them on every push and pull request.</div>
@@ -478,7 +472,7 @@
     <tr><td>Estimated token counts; lexical shortlister</td><td>The model's tokenizer; multilingual embedding retrieval over skill cards</td></tr>
     <tr><td>Heuristic split of instruction and text in long prompts</td><td>Router-returned spans, or the text as a separate input</td></tr>
     <tr><td>Synchronous calls; sequential map-reduce</td><td>Async graph, concurrent chunks within rate limits, streaming</td></tr>
-    <tr><td>Translation checks cover numbers, weekdays and leftover English; idioms can come out literal with reasoning off</td><td>Entity, date and unit alignment; domain glossaries; a larger model or reasoning for translation</td></tr>
+    <tr><td>Translation checks detect wrong numbers, weekdays and Latin-script leftovers, but the repair uses the same small model (it kept the Spanish <i>suerte</i> for “good luck”)</td><td>Entity, date and unit alignment; domain glossaries; a larger model or reasoning for translation</td></tr>
     <tr><td>Numeric calculator only</td><td>SymPy-backed tool for algebra, with the same safety envelope</td></tr>
     <tr><td>No memory, auth, persistence; in-response trace only</td><td>Sessions, authentication, audit logs; OpenTelemetry/LangSmith tracing and cost metrics</td></tr>
   </table>

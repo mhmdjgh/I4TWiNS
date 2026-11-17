@@ -10,6 +10,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
+import pytest
 from langchain_core.messages import BaseMessage
 
 from skill_agent.agent import Agent
@@ -129,6 +130,39 @@ def test_parallel_steps_get_their_own_span() -> None:
         "Translate 'good luck with your exam' into Persian, and also tell me what 15% of 3,200 is."
     )
     assert "<text>\ngood luck with your exam\n</text>" in seen["translator"]
+
+
+def test_parallel_translator_falls_back_to_the_quoted_text() -> None:
+    seen: dict[str, str] = {}
+
+    def translate(user: str) -> str:
+        seen["translator"] = user
+        return "در امتحانت موفق باشی"
+
+    plan = json.dumps({"problems": [{"label": "15% of 3200", "expression": "3200 * 15 / 100"}]})
+    decision = routing(
+        step("translator", target_language="Persian"), step("calculator"), mode="parallel"
+    )
+    agent = make_agent(scripted(decision, translator=translate, calculator=plan))
+    agent.run("Translate 'good luck with your exam' into Persian, and what is 15% of 3,200?")
+    assert "<text>\ngood luck with your exam\n</text>" in seen["translator"]
+    assert "3,200" not in seen["translator"]  # the calculation is not shown to the translator
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Translate 'see you soon' and add 2+2", "see you soon"),
+        ('Translate "good night" to Persian', "good night"),
+        ("ترجمه کن «شب بخیر» را و جمع ۲ و ۳", "شب بخیر"),
+        ("It's a test, don't translate", None),
+        ("Translate 'a' and 'b'", None),
+    ],
+)
+def test_quoted_span(text: str, expected: str | None) -> None:
+    from skill_agent.nodes.execute import _quoted
+
+    assert _quoted(text) == expected
 
 
 def test_invented_span_is_ignored() -> None:

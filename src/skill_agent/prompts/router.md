@@ -22,11 +22,14 @@ Rules:
 3. With two skills, choose the mode:
    - "sequential" when the second skill must work on the first skill's output
      (summarize a text, then translate the summary). List the skills in execution order.
+     A summary, TL;DR or key points requested in a language other than the text's own language
+     is always two skills, even if the user never says "translate": summarizer, then translator
+     with that target_language. The summarizer does not change language.
    - "parallel" when the two tasks are independent of each other. Then set "input" for each
      skill: the part of the message that skill must work on, copied exactly (e.g. only the
      phrase to translate, only the calculation). Otherwise leave "input" null.
 4. target_language is only for translator: the language name in English ("English", "Persian",
-   "French"). Use null if the user did not say.
+   "Spanish"). Use null if the user did not say.
 5. Greetings, small talk, opinions, general knowledge, and anything no other skill covers go to
    general_chat. It is also the right choice for a vague message that is still conversational.
 6. Set needs_clarification to true (with "skills": []) only when the user clearly wants one of the
