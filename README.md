@@ -471,7 +471,7 @@ Runs 1 and 2 used Nemotron 3 Nano Omni; runs 3 to 6 used Nemotron 3.5 Lightning.
 ```bash
 uv run ruff check && uv run ruff format --check
 uv run mypy src dashboard          # strict
-uv run --extra dashboard pytest    # 196 tests, no network needed
+uv run --extra dashboard pytest    # 204 tests, no network needed
 ```
 
 The tests run offline against a scripted chat model that answers according to which prompt it
