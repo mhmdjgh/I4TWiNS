@@ -32,7 +32,7 @@ Streamlit dashboard that shows what happened inside each request.
 git clone https://github.com/mhmdjgh/I4TWiNS.git && cd I4TWiNS
 uv sync
 cp .env.example .env          # put a free OpenRouter key in LLM_API_KEY
-uv run skill-agent ask "این متن را خلاصه کن و به انگلیسی ترجمه کن: ..."
+uv run skill-agent ask "Translate 'good morning' into Persian, and what is 15% of 3,200?"
 ```
 
 ### At a glance
