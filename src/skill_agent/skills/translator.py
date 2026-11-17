@@ -64,7 +64,9 @@ class Translator(Skill):
             f"Your previous translation:\n<translation>\n{reply.text}\n</translation>\n"
             f"It has these problems:\n{problems}\nReturn the corrected translation only."
         )
-        fixed = self.llm.complete(system, repair, max_tokens=task.max_output_tokens)
+        fixed = self.llm.complete(
+            system, repair, max_tokens=task.max_output_tokens, temperature=0.0
+        )
         return SkillOutput(
             text=fixed.text,
             usage=reply.usage + fixed.usage,

@@ -51,8 +51,8 @@ _VERBATIM = re.compile(r"`[^`]*`|https?://\S+|\S+@\S+\.\w+")
 _LOWERCASE_LATIN_WORD = re.compile(r"\b[a-z]{3,}\b")
 
 
-def _untranslated_english(persian_text: str) -> list[str]:
-    """Lower-case English words inside a Persian translation (e.g. «…postponed شده است»).
+def _latin_leftovers(persian_text: str) -> list[str]:
+    """Lower-case Latin-script words inside a Persian translation («…postponed شده است»).
 
     Capitalized words are left alone because names and brands are often kept in Latin script,
     and code, URLs and e-mail addresses are skipped because they must stay unchanged.
@@ -108,9 +108,12 @@ def translation_issues(
             f'"{day.title()}" must be translated as «{WEEKDAYS[day]}»'
             for day in sorted(expected - present)
         ]
-        leftovers = _untranslated_english(translation)
+        leftovers = _latin_leftovers(translation)
         if leftovers:
-            issues.append(f"English words left untranslated: {', '.join(leftovers)}")
+            issues.append(
+                "words in Latin script left in the Persian text (write them in Persian): "
+                + ", ".join(leftovers)
+            )
     elif target == "en":
         expected, present = _persian_weekdays(source), _english_weekdays(translation)
         issues += [
