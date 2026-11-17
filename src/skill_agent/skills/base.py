@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from skill_agent.config import Settings
 from skill_agent.context.budget import ContextBudget
+from skill_agent.context.chunking import split_instruction
 from skill_agent.llm import LLMClient, Usage
 
 
@@ -81,6 +82,13 @@ def task_message(task: SkillTask) -> str:
     if task.target_language:
         parts.append(f"Target language: {task.target_language}")
     return "\n\n".join(parts)
+
+
+def request_and_text(task: SkillTask) -> tuple[str, str]:
+    """The request and the text to work on: the step's own input, else the prompt split in two."""
+    if task.input_text is not None:
+        return task.prompt, task.input_text
+    return split_instruction(task.prompt)
 
 
 class Skill(ABC):

@@ -51,7 +51,7 @@ class Agent:
         self.settings = settings or get_settings()
         self.registry = registry
         self.router = Router(llm, registry, self.settings)
-        self.graph = build_graph(llm, self.settings, registry)
+        self.graph = build_graph(llm, self.settings, self.router)
 
     @classmethod
     def from_settings(cls, settings: Settings | None = None) -> Agent:

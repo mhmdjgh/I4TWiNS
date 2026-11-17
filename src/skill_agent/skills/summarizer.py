@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-from skill_agent.context.chunking import chunk_text, split_instruction
+from skill_agent.context.chunking import chunk_text
 from skill_agent.context.tokens import estimate_tokens
 from skill_agent.i18n import t
 from skill_agent.llm import Usage
 from skill_agent.prompts import load_prompt
-from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, task_message
+from skill_agent.skills.base import (
+    Skill,
+    SkillCard,
+    SkillOutput,
+    SkillTask,
+    request_and_text,
+    task_message,
+)
 from skill_agent.skills.registry import register_skill
 
 _MAX_REDUCE_ROUNDS = 3
@@ -42,7 +49,7 @@ class Summarizer(Skill):
     )
 
     def run(self, task: SkillTask) -> SkillOutput:
-        text = task.input_text if task.input_text is not None else split_instruction(task.prompt)[1]
+        _, text = request_and_text(task)
         if len(text.split()) < _MIN_WORDS:
             # "Summarize this" with nothing attached: ask for the text instead of letting the
             # model summarize the instruction itself (a routing slip seen in evaluation).
@@ -79,10 +86,7 @@ class Summarizer(Skill):
         Every call stays within the window no matter how long the input is; the reduce step is
         repeated (up to a few rounds) while the partial summaries are themselves too long.
         """
-        if task.input_text is not None:
-            request, text = task.prompt, task.input_text
-        else:
-            request, text = split_instruction(task.prompt)
+        request, text = request_and_text(task)
         chunk_budget = self.settings.chunk_tokens
         usage = Usage()
         total_chunks = 0

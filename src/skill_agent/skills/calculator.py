@@ -5,6 +5,7 @@ import re
 from pydantic import BaseModel, Field
 
 from skill_agent.context.tokens import excerpt
+from skill_agent.i18n import t
 from skill_agent.prompts import load_prompt, render
 from skill_agent.skills.base import Skill, SkillCard, SkillOutput, SkillTask, ToolCall
 from skill_agent.skills.registry import register_skill
@@ -33,12 +34,6 @@ def is_word_problem(text: str) -> bool:
     more" became "- 20"). Written expressions and "X% of Y" don't need it and stay fast.
     """
     return len(_NUMBER.findall(text)) >= 3 and not _OPERATOR.search(text)
-
-
-_MESSAGES = {
-    "en": {"failed": "could not compute", "nothing": "I couldn't find a calculation to perform."},
-    "fa": {"failed": "محاسبه ممکن نشد", "nothing": "محاسبه‌ای در درخواست پیدا نکردم."},
-}
 
 
 @register_skill
@@ -94,9 +89,8 @@ class Calculator(Skill):
         plan, usage = self.llm.structured(
             system, user, MathPlan, max_tokens=600, reasoning=reasoning
         )
-        messages = _MESSAGES["fa" if task.language == "fa" else "en"]
         if not plan.problems:
-            text = messages["nothing"] + (f" {plan.note}" if plan.note else "")
+            text = t("calculator.nothing", task.language) + (f" {plan.note}" if plan.note else "")
             return SkillOutput(text=text, usage=usage)
 
         calls: list[ToolCall] = []
@@ -109,7 +103,7 @@ class Calculator(Skill):
                 calls.append(
                     ToolCall(name=calculate.name, arguments=args, output=str(exc), ok=False)
                 )
-                lines.append(f"- {problem.label}: {messages['failed']} ({exc})")
+                lines.append(f"- {problem.label}: {t('calculator.failed', task.language)} ({exc})")
                 continue
             calls.append(ToolCall(name=calculate.name, arguments=args, output=result))
             lines.append(f"- {problem.label}: `{problem.expression}` = **{result}**")

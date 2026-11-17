@@ -24,6 +24,8 @@ _ALIASES = {
 
 Mode = Literal["single", "parallel", "sequential"]
 
+_BLANKS = frozenset({"", "null", "none"})
+
 
 class SkillStep(BaseModel):
     skill: str
@@ -40,17 +42,11 @@ class SkillStep(BaseModel):
         name = value.strip().lower().replace("-", "_").replace(" ", "_")
         return _ALIASES.get(name, name)
 
-    @field_validator("input", mode="before")
+    @field_validator("input", "target_language", mode="before")
     @classmethod
-    def _blank_input_is_none(cls, value: object) -> object:
-        if isinstance(value, str) and value.strip().lower() in {"", "null", "none"}:
-            return None
-        return value
-
-    @field_validator("target_language", mode="before")
-    @classmethod
-    def _empty_is_none(cls, value: object) -> object:
-        if isinstance(value, str) and value.strip().lower() in {"", "null", "none", "auto"}:
+    def _blank_is_none(cls, value: object, info: ValidationInfo) -> object:
+        blanks = _BLANKS | {"auto"} if info.field_name == "target_language" else _BLANKS
+        if isinstance(value, str) and value.strip().lower() in blanks:
             return None
         return value
 

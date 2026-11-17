@@ -203,11 +203,11 @@ class _Evaluator:
                 return _checked(_INTEGER_FUNCTIONS[func](*(_as_int(a, func) for a in args)))
             if func in _FLOAT_FUNCTIONS:
                 return _checked(_FLOAT_FUNCTIONS[func](*(float(a) for a in args)))
+        except CalculationError:
+            raise
         except TypeError as exc:
             raise CalculationError(f"wrong number of arguments for {func}()") from exc
         except (ValueError, OverflowError, ZeroDivisionError) as exc:
-            if isinstance(exc, CalculationError):
-                raise
             raise CalculationError(f"{func}() is undefined for these arguments") from exc
         raise CalculationError(f"unknown function {func!r}")
 
@@ -243,13 +243,13 @@ def evaluate(expression: str) -> Evaluation:
         raise CalculationError(f"invalid expression: {expr!r}") from exc
     try:
         value = _Evaluator().visit(tree)
+    except CalculationError:
+        raise
     except (ZeroDivisionError, OverflowError) as exc:
         raise CalculationError(
             "division by zero" if isinstance(exc, ZeroDivisionError) else "result is too large"
         ) from exc
     except ValueError as exc:
-        if isinstance(exc, CalculationError):
-            raise
         raise CalculationError("math domain error") from exc
     display, exact = format_number(value)
     return Evaluation(expression=expr, value=value, display=display, exact=exact)

@@ -17,6 +17,11 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "en": "This part could not be completed: {error}",
         "fa": "این بخش انجام نشد: {error}",
     },
+    "calculator.failed": {"en": "could not compute", "fa": "محاسبه ممکن نشد"},
+    "calculator.nothing": {
+        "en": "I couldn't find a calculation to perform.",
+        "fa": "محاسبه‌ای در درخواست پیدا نکردم.",
+    },
     "agent.unavailable": {
         "en": "Sorry, the language model is not reachable right now. Please try again shortly.",
         "fa": "متأسفم، در حال حاضر به مدل زبانی دسترسی ندارم. لطفاً کمی بعد دوباره تلاش کنید.",
