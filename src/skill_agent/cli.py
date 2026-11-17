@@ -13,7 +13,7 @@ from rich.table import Table
 
 from skill_agent.agent import Agent, AgentResponse
 from skill_agent.config import get_settings
-from skill_agent.evaluation import CaseResult, evaluate, load_cases
+from skill_agent.evaluation import EVAL_DELAY_S, CaseResult, evaluate, load_cases
 from skill_agent.llm import ConfigurationError
 from skill_agent.routing import RoutingDecision
 from skill_agent.skills import registry
@@ -159,7 +159,7 @@ def run_eval(
     ] = False,
     delay: Annotated[
         float, typer.Option(help="Seconds between cases (free-tier rate limits).")
-    ] = 3.0,
+    ] = EVAL_DELAY_S,
     only: Annotated[list[str] | None, typer.Option(help="Run only these case ids.")] = None,
 ) -> None:
     """Measure skill-detection accuracy on the evaluation set."""
