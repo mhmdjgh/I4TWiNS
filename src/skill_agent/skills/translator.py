@@ -15,6 +15,8 @@ from skill_agent.skills.checks import target_code, translation_issues
 from skill_agent.skills.registry import register_skill
 
 _REPAIR_TEMPERATURES = (0.0, 0.7)
+# A translation is about as long as its source (longer for Persian): size by chunk.
+_OUTPUT_PER_CHUNK_TOKEN = 2
 
 
 def _repair_request(message: str, translation: str, issues: list[str]) -> str:
@@ -109,9 +111,10 @@ class Translator(Skill):
                     "this part completely and output only its translation)".strip(),
                 }
             )
-            # A translation is about as long as its source (longer for Persian): size by chunk.
             reply = self.llm.complete(
-                system, task_message(part), max_tokens=self.settings.chunk_tokens * 2
+                system,
+                task_message(part),
+                max_tokens=self.settings.chunk_tokens * _OUTPUT_PER_CHUNK_TOKEN,
             )
             usage += reply.usage
             pieces.append(reply.text)

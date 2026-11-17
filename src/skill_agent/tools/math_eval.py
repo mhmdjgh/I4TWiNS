@@ -25,6 +25,7 @@ MAX_NODES = 150
 MAX_RESULT_DIGITS = 2_000
 MAX_EXPONENT = 10_000
 MAX_FACTORIAL = 1_000
+_LOG10_2 = math.log10(2)  # decimal digits per bit
 
 
 class CalculationError(ValueError):
@@ -116,7 +117,7 @@ def normalize_expression(text: str) -> str:
 def _digits(value: Number) -> int:
     if isinstance(value, Fraction):
         bits = max(value.numerator.bit_length(), value.denominator.bit_length())
-        return int(bits * 0.30103) + 1
+        return int(bits * _LOG10_2) + 1
     return 0
 
 
@@ -146,7 +147,7 @@ def _power(base: Number, exponent: Number) -> Number:
         if base == 0 and exp < 0:
             raise CalculationError("division by zero")
         bits = max(base.numerator.bit_length(), base.denominator.bit_length())
-        if bits * abs(exp) * 0.30103 > MAX_RESULT_DIGITS:
+        if bits * abs(exp) * _LOG10_2 > MAX_RESULT_DIGITS:
             raise CalculationError(f"result exceeds {MAX_RESULT_DIGITS} digits")
         return base**exp
     return math.pow(float(base), float(exponent))

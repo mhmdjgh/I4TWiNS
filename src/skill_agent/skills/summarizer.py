@@ -19,6 +19,8 @@ _MAX_REDUCE_ROUNDS = 3
 _MIN_WORDS = 8  # anything shorter is not worth summarizing; most likely the text is missing
 _CHECK_FROM_WORDS = 40  # below this a summary may legitimately be close to the source length
 _MAX_RATIO = 0.6  # a summary longer than this share of the source gets one shortening pass
+_SHORTENED_RATIO = 0.4  # the length that pass asks for
+_MAX_REQUEST_CHARS = 500  # of the prompt, when no instruction could be split off
 
 
 @register_skill
@@ -66,7 +68,7 @@ class Summarizer(Skill):
             return SkillOutput(text=reply.text, usage=reply.usage)
 
         # The model sometimes restates the text instead of condensing it; ask once, with numbers.
-        target = int(source_words * 0.4)
+        target = int(source_words * _SHORTENED_RATIO)
         repair = (
             f"{message}\n\nYour previous summary:\n<summary>\n{reply.text}\n</summary>\n"
             f"It has {summary_words} words but the source has only {source_words}. Rewrite it "
@@ -115,7 +117,7 @@ class Summarizer(Skill):
 
         final = task.model_copy(
             update={
-                "prompt": request or task.prompt[:500],
+                "prompt": request or task.prompt[:_MAX_REQUEST_CHARS],
                 "input_text": text,
                 "instruction": "The text consists of summaries of consecutive parts of one "
                 "document. Merge them into a single summary that fulfils the original request. "

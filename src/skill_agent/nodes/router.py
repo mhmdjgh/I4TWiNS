@@ -15,6 +15,8 @@ from skill_agent.skills.registry import SkillRegistry
 from skill_agent.state import AgentState, TraceEvent
 from skill_agent.text.persian import detect_language
 
+_MAX_DECISION_TOKENS = 500
+
 
 def _known_or_english(language: str) -> str:
     return language if language != "unknown" else "en"
@@ -67,7 +69,7 @@ class Router:
                     "skills": [card.name for card in cards],
                     "max_skills": self.settings.max_skills_per_request,
                 },
-                max_tokens=500,
+                max_tokens=_MAX_DECISION_TOKENS,
             )
         except StructuredOutputError as exc:
             decision = self.fallback_decision(language)

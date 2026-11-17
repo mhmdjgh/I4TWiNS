@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 
 COMPOSE = "compose"
 CLARIFY = "clarify"
+_REQUEST_EXCERPT_TOKENS = 200  # what a step sees of the message when it has its own input
 
 
 class SkillInput(TypedDict):
@@ -123,7 +124,7 @@ class Scheduler:
             # A chained step gets the previous output plus the user's instruction only. With the
             # original text also present, a small model may work on that instead.
             instruction, _ = split_instruction(prompt)
-            prompt = instruction or excerpt(prompt, 200)
+            prompt = instruction or excerpt(prompt, _REQUEST_EXCERPT_TOKENS)
         else:
             if planned.input and _verbatim_in(planned.input, prompt):
                 # The router pinned the part of a multi-task prompt that belongs to this skill.
@@ -141,7 +142,7 @@ class Scheduler:
             if input_text is not None:
                 # With its own span, a skill sees its instruction instead of the whole message;
                 # otherwise a small model also works on the other task's part of the prompt.
-                prompt = planned.instruction or excerpt(prompt, 200)
+                prompt = planned.instruction or excerpt(prompt, _REQUEST_EXCERPT_TOKENS)
         return SkillTask(
             step=step,
             skill=planned.skill,

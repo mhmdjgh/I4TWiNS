@@ -25,6 +25,7 @@ class MathPlan(BaseModel):
 
 _NUMBER = re.compile(r"[0-9۰-۹٠-٩]+(?:[.,٫٬][0-9۰-۹٠-٩]+)*")
 _OPERATOR = re.compile(r"[+*/^×÷=]|\d\s*-\s*\d")
+_MAX_PLAN_TOKENS = 600
 
 
 def is_word_problem(text: str) -> bool:
@@ -82,12 +83,14 @@ class Calculator(Skill):
 
     def run(self, task: SkillTask) -> SkillOutput:
         system = render(load_prompt("calculator"), functions=", ".join(FUNCTIONS))
-        text = excerpt(task.input_text or task.prompt, self.budget.input_room(system, 600))
+        text = excerpt(
+            task.input_text or task.prompt, self.budget.input_room(system, _MAX_PLAN_TOKENS)
+        )
         user = f"{text}\n\n(Focus: {task.instruction})" if task.instruction else text
         # Decided on the user's words only: the router's instruction may add symbols ("120 - 35%").
         reasoning = "low" if is_word_problem(text) else None
         plan, usage = self.llm.structured(
-            system, user, MathPlan, max_tokens=600, reasoning=reasoning
+            system, user, MathPlan, max_tokens=_MAX_PLAN_TOKENS, reasoning=reasoning
         )
         if not plan.problems:
             text = t("calculator.nothing", task.language) + (f" {plan.note}" if plan.note else "")
