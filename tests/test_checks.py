@@ -83,6 +83,44 @@ def test_translator_repairs_flagged_translation() -> None:
     assert "<translation>" in repair_message and "Thursday" in repair_message
 
 
+def test_translator_tries_again_when_the_repair_repeats_the_mistake() -> None:
+    leftover = "جلسه به صبح پنج‌شنبه postponed شد."
+    model = ScriptedChatModel(
+        responder=replies(leftover, leftover, "جلسه به صبح پنج‌شنبه موکول شد.")
+    )
+    task = SkillTask(
+        step=0,
+        skill="translator",
+        instruction="translate into Persian",
+        prompt=f"Translate into Persian: {SOURCE}",
+        language="en",
+        target_language="Persian",
+    )
+    output = Translator(LLMClient(model), Settings(_env_file=None)).run(task)
+
+    assert output.text == "جلسه به صبح پنج‌شنبه موکول شد."
+    assert [kw["temperature"] for kw in model.call_kwargs[1:]] == [0.0, 0.7]
+    assert not any("still flagged" in note for note in output.notes)
+
+
+def test_translator_keeps_the_better_version_when_repairs_fail() -> None:
+    first = "جلسه به صبح پنج‌شنبه postponed شد."
+    worse = "جلسه به صبح جمعه postponed شد."
+    model = ScriptedChatModel(responder=replies(first, worse, worse))
+    task = SkillTask(
+        step=0,
+        skill="translator",
+        instruction="translate into Persian",
+        prompt=f"Translate into Persian: {SOURCE}",
+        language="en",
+        target_language="Persian",
+    )
+    output = Translator(LLMClient(model), Settings(_env_file=None)).run(task)
+
+    assert output.text == first
+    assert "still flagged" in output.notes[-1]
+
+
 def test_translator_skips_repair_when_clean() -> None:
     model = ScriptedChatModel(responder=replies("صبح بخیر!"))
     task = SkillTask(
