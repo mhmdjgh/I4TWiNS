@@ -132,6 +132,43 @@ def test_parallel_steps_get_their_own_span() -> None:
     assert "<text>\ngood luck with your exam\n</text>" in seen["translator"]
 
 
+def test_overlapping_span_loses_the_other_task() -> None:
+    seen: dict[str, str] = {}
+
+    def translate(user: str) -> str:
+        seen["translator"] = user
+        return "The meeting was moved to Thursday."
+
+    plan = json.dumps({"problems": [{"label": "12 × 7", "expression": "12 * 7"}]})
+    decision = routing(
+        step(
+            "translator",
+            target_language="English",
+            input="جلسه به پنجشنبه منتقل شد. و ۱۲ ضربدر ۷ چند میشه؟",
+        ),
+        step("calculator", input="۱۲ ضربدر ۷ چند میشه؟"),
+        mode="parallel",
+    )
+    agent = make_agent(scripted(decision, translator=translate, calculator=plan))
+    agent.run("این متن رو به انگلیسی ترجمه کن: جلسه به پنجشنبه منتقل شد. و ۱۲ ضربدر ۷ چند میشه؟")
+    assert "<text>\nجلسه به پنجشنبه منتقل شد.\n</text>" in seen["translator"]
+
+
+@pytest.mark.parametrize(
+    ("span", "others", "expected"),
+    [
+        ("Translate hello, and also what is 2+2?", ["what is 2+2?"], "Translate hello"),
+        ("سلام. و ۲ به علاوه ۳؟", ["۲ به علاوه ۳؟"], "سلام."),
+        ("hello", ["hello"], "hello"),  # identical spans are left alone
+        ("hello", ["bye"], "hello"),
+    ],
+)
+def test_span_without_other_spans(span: str, others: list[str], expected: str) -> None:
+    from skill_agent.nodes.execute import _without
+
+    assert _without(span, others) == expected
+
+
 def test_parallel_translator_falls_back_to_the_quoted_text() -> None:
     seen: dict[str, str] = {}
 

@@ -79,6 +79,26 @@ def _verbatim_in(span: str, text: str) -> bool:
     return bool(squash(span)) and squash(span) in " ".join(text.split())
 
 
+# What is left between two tasks once one of them is cut out: "and", "also", "و", "همچنین", commas.
+_JOINERS = re.compile(r"(?:[\s,،;؛]|\b(?:and|also|plus)\b|(?<!\S)(?:و|همچنین|ضمنا|ضمناً)(?!\S))+$")
+
+
+def _without(span: str, others: list[str]) -> str:
+    """`span` with any other step's span cut out of it.
+
+    The router sometimes pins the whole tail of a message for the first task ("translate: X. and
+    what is 12*7?"), which overlaps the second task's span; the translator would then translate
+    the question too.
+    """
+    text = " ".join(span.split())
+    for other in others:
+        part = " ".join(other.split())
+        if part and part != text and part in text:
+            text = text.replace(part, " ")
+    text = _JOINERS.sub("", " ".join(text.split()))
+    return text or span
+
+
 _QUOTED = re.compile(r"«([^»]+)»|“([^”]+)”|\"([^\"]+)\"|(?<!\w)'([^']+)'(?!\w)")
 
 
@@ -109,6 +129,11 @@ class Scheduler:
                 # The router pinned the part of a multi-task prompt that belongs to this skill.
                 # It is used only if it really occurs in the message, so it cannot be invented.
                 input_text = planned.input
+                if decision.mode == "parallel":
+                    others = [
+                        s.input for i, s in enumerate(decision.skills) if i != step and s.input
+                    ]
+                    input_text = _without(input_text, others)
             elif decision.mode == "parallel" and planned.skill == "translator":
                 # The router does not always pin the span. "Translate 'X' ..., and ..." quotes
                 # the text to translate; without that boundary the rest gets translated too.
