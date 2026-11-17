@@ -155,6 +155,17 @@ def test_empty_truncated_completion_is_retried() -> None:
     assert [kw["max_tokens"] for kw in model.call_kwargs] == [300, 600]
 
 
+def test_blank_values_in_env_mean_unset() -> None:
+    settings = Settings(
+        _env_file=None, llm_api_key="  ", dashboard_password="", llm_fallback_model=""
+    )
+    assert settings.llm_api_key is None
+    assert settings.dashboard_password is None
+    assert settings.llm_fallback_model is None
+    with pytest.raises(ConfigurationError):
+        build_llm(settings)
+
+
 def test_build_llm_requires_key() -> None:
     with pytest.raises(ConfigurationError):
         build_llm(Settings(_env_file=None, llm_api_key=None))

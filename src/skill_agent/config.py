@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -49,6 +49,12 @@ class Settings(BaseSettings):
 
     # Dashboard. Leave the password empty to open the dashboard without a sign-in screen.
     dashboard_password: SecretStr | None = None
+
+    @field_validator("llm_api_key", "dashboard_password", "llm_fallback_model", mode="before")
+    @classmethod
+    def _blank_is_unset(cls, value: object) -> object:
+        # `LLM_API_KEY=` in a .env file means "not set", not "an empty key".
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 @lru_cache
