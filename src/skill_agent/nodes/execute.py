@@ -11,6 +11,7 @@ Two-skill requests run in one of two shapes, chosen by the router:
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from time import perf_counter
 from typing import Any, TypedDict
@@ -78,6 +79,15 @@ def _verbatim_in(span: str, text: str) -> bool:
     return bool(squash(span)) and squash(span) in " ".join(text.split())
 
 
+_QUOTED = re.compile(r"«([^»]+)»|“([^”]+)”|\"([^\"]+)\"|(?<!\w)'([^']+)'(?!\w)")
+
+
+def _quoted(text: str) -> str | None:
+    """The first quoted passage of a message, if there is exactly one."""
+    spans = [next(g for g in match.groups() if g) for match in _QUOTED.finditer(text)]
+    return spans[0].strip() if len(spans) == 1 and spans[0].strip() else None
+
+
 class Scheduler:
     def __init__(self, settings: Settings) -> None:
         self.budget = ContextBudget.from_settings(settings)
@@ -94,10 +104,19 @@ class Scheduler:
             # original text also present, a small model may work on that instead.
             instruction, _ = split_instruction(prompt)
             prompt = instruction or excerpt(prompt, 200)
-        elif planned.input and _verbatim_in(planned.input, prompt):
-            # The router pinned the part of a multi-task prompt that belongs to this skill.
-            # It is used only if it really occurs in the message, so it cannot be invented.
-            input_text = planned.input
+        else:
+            if planned.input and _verbatim_in(planned.input, prompt):
+                # The router pinned the part of a multi-task prompt that belongs to this skill.
+                # It is used only if it really occurs in the message, so it cannot be invented.
+                input_text = planned.input
+            elif decision.mode == "parallel" and planned.skill == "translator":
+                # The router does not always pin the span. "Translate 'X' ..., and ..." quotes
+                # the text to translate; without that boundary the rest gets translated too.
+                input_text = _quoted(prompt)
+            if input_text is not None:
+                # With its own span, a skill sees its instruction instead of the whole message;
+                # otherwise a small model also works on the other task's part of the prompt.
+                prompt = planned.instruction or excerpt(prompt, 200)
         return SkillTask(
             step=step,
             skill=planned.skill,
